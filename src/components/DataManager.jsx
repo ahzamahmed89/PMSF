@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/DataManager.css';
 
@@ -32,6 +32,11 @@ const DataManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
+  
+  // Drag and drop state
+  const [draggedMasterCatIndex, setDraggedMasterCatIndex] = useState(null);
+  const [draggedCategoryIndex, setDraggedCategoryIndex] = useState(null);
+  const [draggedRecordIndex, setDraggedRecordIndex] = useState(null);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -434,6 +439,150 @@ const DataManager = () => {
     });
   };
 
+  // Drag and Drop Handlers for Master Categories
+  const handleDragStartMasterCat = (e, index) => {
+    setDraggedMasterCatIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEndMasterCat = (e) => {
+    e.target.style.opacity = '';
+    setDraggedMasterCatIndex(null);
+  };
+
+  const handleDragOverMasterCat = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropMasterCat = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedMasterCatIndex === null || draggedMasterCatIndex === dropIndex) return;
+
+    const dragIndex = draggedMasterCatIndex;
+    setData(prevData => {
+      const newData = [...prevData];
+      const uniqueMasterCats = [];
+      const seen = new Set();
+      newData.forEach(item => {
+        if (!seen.has(item.MasterCat) && item.MasterCat) {
+          uniqueMasterCats.push(item.MasterCat);
+          seen.add(item.MasterCat);
+        }
+      });
+
+      const dragMasterCat = uniqueMasterCats[dragIndex];
+      const dropMasterCat = uniqueMasterCats[dropIndex];
+
+      // Find all records for both master categories
+      const dragRecords = newData.filter(item => item.MasterCat === dragMasterCat);
+      const dropRecords = newData.filter(item => item.MasterCat === dropMasterCat);
+
+      // Remove drag records from array
+      const filtered = newData.filter(item => item.MasterCat !== dragMasterCat);
+
+      // Find insertion point (where drop master cat starts)
+      const insertIndex = filtered.findIndex(item => item.MasterCat === dropMasterCat);
+
+      if (dragIndex < dropIndex) {
+        // Moving down - insert after drop group
+        const dropEndIndex = insertIndex + dropRecords.length;
+        filtered.splice(dropEndIndex, 0, ...dragRecords);
+      } else {
+        // Moving up - insert before drop group
+        filtered.splice(insertIndex, 0, ...dragRecords);
+      }
+
+      return filtered;
+    });
+  };
+
+  // Drag and Drop Handlers for Categories
+  const handleDragStartCategory = (e, index) => {
+    setDraggedCategoryIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEndCategory = (e) => {
+    e.target.style.opacity = '';
+    setDraggedCategoryIndex(null);
+  };
+
+  const handleDragOverCategory = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropCategory = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedCategoryIndex === null || draggedCategoryIndex === dropIndex) return;
+
+    const dragIndex = draggedCategoryIndex;
+    setData(prevData => {
+      const newData = [...prevData];
+      const uniqueCategories = [];
+      const seen = new Set();
+      newData.forEach(item => {
+        if (item.MasterCat === selectedMasterCat && !seen.has(item.Category) && item.Category) {
+          uniqueCategories.push(item.Category);
+          seen.add(item.Category);
+        }
+      });
+
+      const dragCategory = uniqueCategories[dragIndex];
+      const dropCategory = uniqueCategories[dropIndex];
+
+      // Find all records for both categories
+      const dragRecords = newData.filter(item => item.Category === dragCategory && item.MasterCat === selectedMasterCat);
+      const dropRecords = newData.filter(item => item.Category === dropCategory && item.MasterCat === selectedMasterCat);
+
+      // Remove drag records
+      const filtered = newData.filter(item => !(item.Category === dragCategory && item.MasterCat === selectedMasterCat));
+
+      // Find insertion point
+      const insertIndex = filtered.findIndex(item => item.Category === dropCategory && item.MasterCat === selectedMasterCat);
+
+      if (dragIndex < dropIndex) {
+        const dropEndIndex = insertIndex + dropRecords.length;
+        filtered.splice(dropEndIndex, 0, ...dragRecords);
+      } else {
+        filtered.splice(insertIndex, 0, ...dragRecords);
+      }
+
+      return filtered;
+    });
+  };
+
+  // Drag and Drop Handlers for Records/Activities
+  const handleDragStartRecord = (e, index) => {
+    setDraggedRecordIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragEndRecord = (e) => {
+    e.currentTarget.style.opacity = '';
+    setDraggedRecordIndex(null);
+  };
+
+  const handleDragOverRecord = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropRecord = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedRecordIndex === null || draggedRecordIndex === dropIndex) return;
+
+    const dragIndex = draggedRecordIndex;
+    const newData = [...data];
+    const [draggedItem] = newData.splice(dragIndex, 1);
+    newData.splice(dropIndex, 0, draggedItem);
+    setData(newData);
+  };
+
   // Submit all changes to backend
   const handleSubmitAll = async () => {
     try {
@@ -592,7 +741,16 @@ const DataManager = () => {
                 <p>No master categories found</p>
               ) : (
                 masterCatOrder.map((masterCat, index) => (
-                  <div key={`${index}-${masterCat}`} className="management-item">
+                  <div 
+                    key={`${index}-${masterCat}`} 
+                    className="management-item"
+                    draggable
+                    onDragStart={(e) => handleDragStartMasterCat(e, index)}
+                    onDragEnd={handleDragEndMasterCat}
+                    onDragOver={handleDragOverMasterCat}
+                    onDrop={(e) => handleDropMasterCat(e, index)}
+                    style={{ cursor: 'move' }}
+                  >
                     {renamingMasterCat === masterCat ? (
                       <div className="rename-container">
                         <input
@@ -666,7 +824,16 @@ const DataManager = () => {
                   <p>No categories found</p>
                 ) : (
                   categoryOrder.map((category, index) => (
-                    <div key={`${index}-${category}`} className="management-item">
+                    <div 
+                      key={`${index}-${category}`} 
+                      className="management-item"
+                      draggable
+                      onDragStart={(e) => handleDragStartCategory(e, index)}
+                      onDragEnd={handleDragEndCategory}
+                      onDragOver={handleDragOverCategory}
+                      onDrop={(e) => handleDropCategory(e, index)}
+                      style={{ cursor: 'move' }}
+                    >
                       {renamingCategory === category ? (
                         <div className="rename-container">
                           <input
@@ -747,7 +914,16 @@ const DataManager = () => {
                 const isDeleted = item.check_Status === 'deleted';
                 const isEditing = editingCode === item.Code && !isDeleted;
                 return (
-                  <tr key={item.Code} className={isDeleted ? 'row-deleted' : ''}>
+                  <tr 
+                    key={item.Code} 
+                    className={isDeleted ? 'row-deleted' : ''}
+                    draggable={!isDeleted && !isEditing}
+                    onDragStart={(e) => handleDragStartRecord(e, index)}
+                    onDragEnd={handleDragEndRecord}
+                    onDragOver={handleDragOverRecord}
+                    onDrop={(e) => handleDropRecord(e, index)}
+                    style={{ cursor: !isDeleted && !isEditing ? 'move' : 'default' }}
+                  >
                     <td>{isEditing ? <input type="text" value={editingData.MasterCat || ''} onChange={(e) => setEditingData({ ...editingData, MasterCat: e.target.value })} /> : item.MasterCat}</td>
                     <td>{isEditing ? <input type="text" value={editingData.Category || ''} onChange={(e) => setEditingData({ ...editingData, Category: e.target.value })} /> : item.Category}</td>
                     <td>{isEditing ? <input type="text" value={editingData.Activity || ''} onChange={(e) => setEditingData({ ...editingData, Activity: e.target.value })} /> : item.Activity}</td>

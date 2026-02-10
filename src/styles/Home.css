@@ -56,3 +56,106 @@
   box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
   transform: translateY(-1px);
 }
+
+/* Waving Banner Styles */
+.page-header-with-banner {
+  position: relative;
+  display: inline-block;
+}
+
+.waving-banner {
+  position: absolute;
+  top: -10px;
+  right: -180px;
+  display: flex;
+  align-items: flex-start;
+  z-index: 10;
+}
+
+.banner-pole {
+  width: 4px;
+  height: 80px;
+  background: linear-gradient(to bottom, #8b7355, #6b5545);
+  border-radius: 2px;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.banner-pole::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  background: #d4af37;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner-flag {
+  position: relative;
+  background: linear-gradient(135deg, #c41e3a 0%, #e63946 50%, #c41e3a 100%);
+  color: white;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 0 4px 4px 0;
+  margin-left: -2px;
+  min-width: 160px;
+  text-align: center;
+  animation: wave 3s ease-in-out infinite;
+  transform-origin: left center;
+  border: 2px solid #fff;
+  border-left: none;
+}
+
+.banner-flag span {
+  display: block;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 2;
+}
+
+.banner-flag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    transparent 50%, 
+    rgba(0, 0, 0, 0.1) 100%);
+  border-radius: 0 4px 4px 0;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  25% {
+    transform: perspective(400px) rotateY(-8deg) translateY(-2px);
+  }
+  50% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  75% {
+    transform: perspective(400px) rotateY(8deg) translateY(-2px);
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

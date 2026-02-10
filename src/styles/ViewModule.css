@@ -3,11 +3,12 @@
   background: linear-gradient(135deg, #e9eaee6d 0%, #010700 100%);
   padding: 5px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  
 }
 
 .view-module-wrapper {
   max-width: 1000px;
-  margin: 0 auto;
+  margin: 10px auto;
 }
 
 .btn-back-view {
@@ -33,11 +34,114 @@
   text-align: center;
   color: white;
   margin-bottom: 8px;
+  position: relative;
+  padding-top: 20px;
+  padding-right: 200px;
+  min-height: 90px;
+}
+
+/* Waving Banner Styles */
+.waving-banner {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  align-items: flex-start;
+  z-index: 10;
+}
+
+.banner-pole {
+  width: 4px;
+  height: 80px;
+  background: linear-gradient(to bottom, #8b7355, #6b5545);
+  border-radius: 2px;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+
+.banner-pole::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  background: #d4af37;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner-flag {
+  position: relative;
+  background: linear-gradient(135deg, #c41e3a 0%, #e63946 50%, #c41e3a 100%);
+  color: white;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 0 4px 4px 0;
+  margin-left: -2px;
+  min-width: 160px;
+  text-align: center;
+  animation: wave 3s ease-in-out infinite;
+  transform-origin: left center;
+  border: 2px solid #fff;
+  border-left: none;
+}
+
+.banner-flag span {
+  display: block;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 2;
+}
+
+.banner-flag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    transparent 50%, 
+    rgba(0, 0, 0, 0.1) 100%);
+  border-radius: 0 4px 4px 0;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  25% {
+    transform: perspective(400px) rotateY(-8deg) translateY(-2px);
+  }
+  50% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  75% {
+    transform: perspective(400px) rotateY(8deg) translateY(-2px);
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .view-module-title {
   font-size: 20px;
   font-weight: 700;
+  margin-left: 50%;
   margin: 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -62,19 +166,50 @@
   gap: 8px;
 }
 
-.branch-grid{
-    width: 750px;
+.branch-grid {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 1fr;
+  gap: 20px;
 }
+
+/* Position branch fields */
+.branch-code {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.branch-name {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.branch-division {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.branch-region {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.branch-area {
+  grid-column: 3;
+  grid-row: 2;
+}
+
 .combined-form-section {
   display: grid;
-  grid-template-columns: 1fr 1px 300px;
-  gap: 20px;
+  grid-template-columns: 1fr 1px 450px;
+  gap: 15px;
   align-items: stretch;
+  width: 120%;
+  box-sizing: border-box;
 }
 
 .combined-form-section > div:nth-child(2) {
   
-  width: 180px;
+  width: 200px;
   align-self: stretch;
 }
 
@@ -95,7 +230,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 100%;
+  width: 120%;
 }
 
 .period-inputs .form-group {
@@ -109,13 +244,20 @@
 }
 
 .form-section {
-  border-top: 1px solid #e0e0e0;
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .form-section:first-of-type {
   border-top: none;
   padding-top: 0;
+}
+
+.form-section-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .section-title {
@@ -686,6 +828,10 @@
     padding: 20px;
   }
 
+  .view-module-container {
+    width: 100%;
+  }
+
   .view-module-title {
     font-size: 24px;
   }
@@ -719,6 +865,166 @@
 
   .form-group label {
     color: #555;
+  }
+
+  .waving-banner {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 12px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
+  }
+
+  .banner-flag {
+    font-size: 11px;
+    padding: 6px 12px;
+    min-width: 140px;
+  }
+
+  .combined-form-section {
+    grid-template-columns: 1fr;
+  }
+
+  .combined-form-section > div:nth-child(2) {
+    width: 100%;
+    height: auto;
+  }
+
+  .branch-grid {
+    display: grid;
+    grid-template-columns: 0.8fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .branch-code {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .branch-name {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .branch-division {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .branch-region {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .branch-area {
+    grid-column: 3;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .waving-banner {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin-top: 10px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
+  }
+
+  .banner-pole {
+    height: 60px;
+  }
+
+  .banner-flag {
+    font-size: 9px;
+    padding: 5px 10px;
+    min-width: 120px;
+  }
+
+  .view-module-title {
+    font-size: 24px;
+  }
+
+  .view-module-subtitle {
+    font-size: 14px;
+  }
+
+  .btn-back-view {
+    font-size: 16px;
+    padding: 9px 18px;
+  }
+
+  .view-module-card {
+    padding: 20px;
+  }
+
+  .view-form {
+    gap: 12px;
+  }
+
+  .form-group label {
+    font-size: 15px;
+  }
+
+  .form-input {
+    padding: 10px 14px;
+    font-size: 15px;
+  }
+
+  .branch-grid {
+    display: grid;
+    grid-template-columns: minmax(100px, 130px) 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 4px;
+  }
+
+  .branch-code {
+    grid-column: 1 / 2;
+    grid-row: 1;
+  }
+
+  .branch-name {
+    grid-column: 2 / 3;
+    grid-row: 1;
+  }
+
+  .branch-division {
+    grid-column: 3 / 4;
+    grid-row: 1;
+  }
+
+  .branch-region {
+    grid-column: 2 / 3;
+    grid-row: 2;
+  }
+
+  .branch-area {
+    grid-column: 3 / 4;
+    grid-row: 2;
+  }
+
+  .combined-form-section {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .combined-form-section > div:nth-child(2) {
+    width: 100%;
+    height: auto;
+    display: none;
+  }
+
+  .branch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .period-selection-section {
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 

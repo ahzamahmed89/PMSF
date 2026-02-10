@@ -1,0 +1,14 @@
+﻿  .form-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .form-row .form-group {
+    min-width: 0 !important;
+    width: 100% !important;
+  }

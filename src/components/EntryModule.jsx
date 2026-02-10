@@ -185,6 +185,12 @@ export default function EntryModule() {
 
         <div className="entry-module-header">
           <h1 className="entry-module-title">Entry Module</h1>
+          <div className="waving-banner">
+            <div className="banner-pole"></div>
+            <div className="banner-flag">
+              <span>Physical Mystery Shopping</span>
+            </div>
+          </div>
           <p className="entry-module-subtitle">Visit Entry Form</p>
         </div>
 

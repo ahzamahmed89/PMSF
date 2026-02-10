@@ -1,0 +1,30 @@
+Adding form-row to tablet (768px) section - after line 489:
+
+  .form-group label {
+    color: #2c3e50;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .form-actions {
+    gap: 12px;
+  }
+
+---
+
+Updating mobile (480px) form-row - lines 681-689:
+
+  .form-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    box-sizing: border-box;
+    grid-auto-flow: column !important;
+  }

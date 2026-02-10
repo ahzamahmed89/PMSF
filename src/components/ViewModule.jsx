@@ -334,6 +334,12 @@ export default function ViewModule() {
 
         <div className="view-module-header">
           <h1 className="view-module-title">View Visit Data</h1>
+          <div className="waving-banner">
+            <div className="banner-pole"></div>
+            <div className="banner-flag">
+              <span>Physical Mystery Shopping</span>
+            </div>
+          </div>
           <p className="view-module-subtitle">Search and view submitted visit records</p>
         </div>
 
