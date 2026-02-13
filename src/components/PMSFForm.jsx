@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import ActivityCard from './ActivityCard';
 import PreviousQuarterComparison from './PreviousQuarterComparison';
+import Button from './Button';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/PMSFForm.css';
 
 export default function PMSFForm() {
@@ -556,21 +558,20 @@ export default function PMSFForm() {
   };
 
   if (loading) {
-    return (
-      <div className="pmsf-form-container">
-        <div className="pmsf-form-header">
-          <p style={{ fontSize: '18px', textAlign: 'center', marginTop: '40px' }}>Loading existing data...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner text="Loading existing data..." fullPage />;
   }
 
   return (
     <div className="pmsf-form-container">
       <div className="pmsf-form-header">
-        <button className="btn-back-pmsf" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
+        <Button 
+          variant="back"
+          onClick={() => navigate(-1)}
+          icon="←"
+          className="btn-back-pmsf"
+        >
+          Back
+        </Button>
         <div className="header-content">
           <h1 className="pmsf-form-title">
             {editMode ? 'Edit Module' : 'PMSF Evaluation Form'}
@@ -731,12 +732,25 @@ export default function PMSFForm() {
       </div>
 
       <div className="pmsf-form-footer">
-        <button className="btn-save-draft" onClick={handleSaveDraft} disabled={isSubmitting}>
-          💾 Save Draft
-        </button>
-        <button className="btn-submit-form" onClick={handleSubmitForm} disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : '✓ Submit Form'}
-        </button>
+        <Button 
+          variant="secondary"
+          onClick={handleSaveDraft} 
+          disabled={isSubmitting}
+          icon="💾"
+          className="btn-save-draft"
+        >
+          Save Draft
+        </Button>
+        <Button 
+          variant="submit"
+          onClick={handleSubmitForm} 
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          icon={!isSubmitting ? "✓" : undefined}
+          className="btn-submit-form"
+        >
+          Submit Form
+        </Button>
       </div>
 
       {showPreviousModal && selectedPreviousActivity && (

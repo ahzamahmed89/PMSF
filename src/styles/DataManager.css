@@ -1023,13 +1023,17 @@ p {
 
   .header-with-back {
     margin-bottom: 20px;
+    text-align: left;
   }
 
   .btn-back {
     position: static;
-    width: 100%;
-    text-align: center;
+    width: auto;
+    align-self: flex-start;
+    text-align: left;
     margin-bottom: 15px;
+    padding: 8px 14px;
+    font-size: 12px;
   }
 
   .checklist-title {
@@ -1059,9 +1063,13 @@ p {
   .form-group input,
   .form-group select {
     padding: 10px 12px;
-    font-size: 13px;
+    font-size: 12px;
     width: 100%;
     box-sizing: border-box;
+  }
+
+  .form-group input::placeholder {
+    font-size: 12px;
   }
 
   .btn {
@@ -1070,7 +1078,9 @@ p {
   }
 
   .btn-add-form {
-    align-self: stretch;
+    align-self: center;
+    padding: 8px 14px;
+    font-size: 11px;
   }
 
   .management-header {

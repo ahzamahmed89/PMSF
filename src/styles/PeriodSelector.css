@@ -1,0 +1,20 @@
+.period-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  width: 100%;
+}
+
+.period-year,
+.period-quarter,
+.period-month {
+  width: 100%;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .period-selector {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

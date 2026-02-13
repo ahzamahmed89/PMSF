@@ -1,0 +1,200 @@
+/* Base Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Button Variants */
+.btn-primary {
+  background: #2c5aa0;
+  color: white;
+  box-shadow: 0 2px 6px rgba(44, 90, 160, 0.2);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: #1e4073;
+  box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+}
+
+.btn-back {
+  background: #2c5aa0;
+  color: white;
+  box-shadow: 0 2px 6px rgba(44, 90, 160, 0.2);
+}
+
+.btn-back:not(:disabled):hover {
+  background: #1e4073;
+  box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+}
+
+.btn-submit {
+  background: #27ae60;
+  color: white;
+  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.2);
+}
+
+.btn-submit:not(:disabled):hover {
+  background: #1e8449;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.btn-success {
+  background: #27ae60;
+  color: white;
+  box-shadow: 0 2px 6px rgba(39, 174, 96, 0.2);
+}
+
+.btn-success:not(:disabled):hover {
+  background: #1e8449;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.btn-danger {
+  background: #e74c3c;
+  color: white;
+  box-shadow: 0 2px 6px rgba(231, 76, 60, 0.2);
+}
+
+.btn-danger:not(:disabled):hover {
+  background: #c0392b;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.btn-secondary {
+  background: #7f8c8d;
+  color: white;
+  box-shadow: 0 2px 6px rgba(127, 140, 141, 0.2);
+}
+
+.btn-secondary:not(:disabled):hover {
+  background: #5d6d6e;
+  box-shadow: 0 4px 12px rgba(127, 140, 141, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #2c5aa0;
+  border: 2px solid #2c5aa0;
+  box-shadow: none;
+}
+
+.btn-outline:not(:disabled):hover {
+  background: #2c5aa0;
+  color: white;
+}
+
+.btn-icon-only {
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  background: #ecf0f1;
+  color: #2c3e50;
+}
+
+.btn-icon-only:not(:disabled):hover {
+  background: #d5dbdb;
+}
+
+.btn-reset {
+  background: #e74c3c;
+  color: white;
+  box-shadow: 0 2px 6px rgba(231, 76, 60, 0.2);
+}
+
+.btn-reset:not(:disabled):hover {
+  background: #c0392b;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* Button Sizes */
+.btn-small {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+.btn-large {
+  padding: 14px 24px;
+  font-size: 15px;
+}
+
+/* Button Width */
+.btn-full-width {
+  width: 100%;
+}
+
+/* Loading State */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Icon Positioning */
+.btn-icon-left,
+.btn-icon-right {
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .btn {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .btn-large {
+    padding: 10px 18px;
+    font-size: 13px;
+  }
+
+  .btn-small {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+}

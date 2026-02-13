@@ -885,6 +885,7 @@
 
   .combined-form-section {
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .combined-form-section > div:nth-child(2) {
@@ -925,6 +926,15 @@
 }
 
 @media (max-width: 480px) {
+  .view-module-header {
+    padding-right: 0;
+    text-align: center;
+  }
+
+  .view-module-title {
+    margin-left: 0;
+  }
+
   .waving-banner {
     position: relative;
     top: auto;
@@ -954,8 +964,8 @@
   }
 
   .btn-back-view {
-    font-size: 16px;
-    padding: 9px 18px;
+    font-size: 12px;
+    padding: 6px 12px;
   }
 
   .view-module-card {
@@ -967,7 +977,7 @@
   }
 
   .form-group label {
-    font-size: 15px;
+    font-size: 12px;
   }
 
   .form-input {
@@ -977,9 +987,14 @@
 
   .branch-grid {
     display: grid;
-    grid-template-columns: minmax(100px, 130px) 1fr 1fr;
+    grid-template-columns: minmax(70px, 90px) minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto auto;
-    gap: 4px;
+    gap: 6px;
+  }
+
+  .branch-grid .form-group,
+  .branch-grid .form-input {
+    min-width: 0;
   }
 
   .branch-code {
@@ -1010,21 +1025,74 @@
   .combined-form-section {
     grid-template-columns: 1fr;
     gap: 15px;
+    width: 100%;
   }
 
   .combined-form-section > div:nth-child(2) {
     width: 100%;
     height: auto;
-    display: none;
-  }
-
-  .branch-grid {
-    grid-template-columns: 1fr;
+    display: block;
   }
 
   .period-selection-section {
     padding-left: 0;
     padding-right: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .period-inputs {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .period-inputs .form-group {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .activity-header {
+    padding: 10px 12px;
+  }
+
+  .activity-name {
+    font-size: 12px;
+  }
+
+  .dropdown-icon {
+    font-size: 10px;
+  }
+
+  .status-badge {
+    font-size: 12px;
+    min-width: 30px;
+    padding: 6px 10px;
+  }
+
+  .note {
+    font-size: 11px;
+    padding: 8px;
+  }
+
+  .activity-media strong {
+    font-size: 11px;
+  }
+
+  .media-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .preview-thumbnail {
+    width: 60px;
+    height: 60px;
+  }
+
+  .period-inputs,
+  .period-inputs .form-group,
+  .period-inputs .form-input {
+    width: 100%;
+    min-width: 0;
   }
 }
 

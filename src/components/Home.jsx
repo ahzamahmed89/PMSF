@@ -1,12 +1,30 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import Button from './Button';
 import '../styles/Home.css';
 
-const Home = () => {
+const Home = ({ onLogout, username }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    if (onLogout) onLogout();
+    navigate('/');
+  };
+
   return (
     <div className="home-container">
       <div className="home-content">
-        <h1>Welcome</h1>
+        <div className="home-header">
+          <h1>Welcome{username ? `, ${username}` : ''}</h1>
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            icon="🚪"
+            size="small"
+          >
+            Logout
+          </Button>
+        </div>
         <p>Select an option to continue:</p>
         <nav className="home-nav">
           <Link to="/entry-module" className="nav-link">
@@ -17,6 +35,12 @@ const Home = () => {
           </Link>
           <Link to="/data-manager" className="nav-link">
             Checklist Manager
+          </Link>
+          <Link to="/quiz-creator" className="nav-link">
+            Create Quiz
+          </Link>
+          <Link to="/quiz-attempt" className="nav-link">
+            Take Quiz
           </Link>
         </nav>
       </div>

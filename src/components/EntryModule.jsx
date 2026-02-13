@@ -4,6 +4,8 @@ import axios from 'axios';
 import BranchInformation from './BranchInformation';
 import VisitDate from './VisitDate';
 import VisitOfficerApproval from './VisitOfficerApproval';
+import Button from './Button';
+import ErrorMessage from './ErrorMessage';
 import '../styles/EntryModule.css';
 
 export default function EntryModule() {
@@ -179,16 +181,21 @@ export default function EntryModule() {
   return (
     <div className="entry-module-container">
       <div className="entry-module-wrapper">
-        <button className="btn-back-entry" onClick={() => navigate('/')}>
-          ← Back to Home
-        </button>
+        <Button 
+          variant="back" 
+          onClick={() => navigate('/')}
+          icon="←"
+          className="btn-back-entry"
+        >
+          Back to Home
+        </Button>
 
         <div className="entry-module-header">
           <h1 className="entry-module-title">Entry Module</h1>
           <div className="waving-banner">
             <div className="banner-pole"></div>
             <div className="banner-flag">
-              <span>Physical Mystery Shopping</span>
+              <span>Service & Quality</span>
             </div>
           </div>
           <p className="entry-module-subtitle">Visit Entry Form</p>
@@ -219,25 +226,36 @@ export default function EntryModule() {
 
             {/* Error Message */}
             {submitError && (
-              <div className="error-message" style={{ marginBottom: '20px' }}>
-                {submitError}
-              </div>
+              <ErrorMessage 
+                message={submitError} 
+                type={submitError.includes('✅') ? 'success' : 'error'}
+                onDismiss={() => setSubmitError('')}
+              />
             )}
 
             {/* Success Message - PMSF Ready */}
             {pmsfData && (
-              <div className="success-message" style={{ marginBottom: '20px' }}>
-                ✅ Form ready for quarter {new Date().getMonth() < 3 ? 'Q1' : new Date().getMonth() < 6 ? 'Q2' : new Date().getMonth() < 9 ? 'Q3' : 'Q4'}. {pmsfData.length} items loaded.
-              </div>
+              <ErrorMessage 
+                message={`Form ready for quarter ${new Date().getMonth() < 3 ? 'Q1' : new Date().getMonth() < 6 ? 'Q2' : new Date().getMonth() < 9 ? 'Q3' : 'Q4'}. ${pmsfData.length} items loaded.`}
+                type="success"
+              />
             )}
 
             <div className="form-actions">
-              <button type="submit" className="btn-submit" disabled={submitLoading}>
+              <Button 
+                type="submit" 
+                variant="submit" 
+                disabled={submitLoading}
+                loading={submitLoading}
+              >
                 {submitLoading ? 'Checking...' : 'Generate Form'}
-              </button>
-              <button type="reset" className="btn-reset">
+              </Button>
+              <Button 
+                type="reset" 
+                variant="reset"
+              >
                 Clear Form
-              </button>
+              </Button>
             </div>
           </form>
         </div>

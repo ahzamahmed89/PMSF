@@ -543,9 +543,8 @@
   .entry-module-container {
     padding: 6px 4px;
     min-height: auto;
-    
     box-sizing: border-box;
-    width: max-content;
+    width: 100%;
   }
 
   .entry-module-wrapper {
@@ -559,9 +558,11 @@
     position: static;
     padding: 6px 8px;
     margin: 0 0 6px 0;
-    font-size: 11px;
+    font-size: 10px;
     box-sizing: border-box;
-    width: 20%;
+    width: auto;
+    align-self: flex-start;
+    text-align: left;
   }
 
   .entry-module-header {
@@ -663,8 +664,13 @@
   .form-group label {
     font-size: 1rem;
     color: #2c3e50;
-    font-weight: 500;
+    font-weight: 700;
     margin: 0;
+  }
+
+  .branch-code .form-input {
+    padding: 10px 12px;
+    min-height: 38px;
   }
 
   .form-row {
@@ -680,7 +686,7 @@
 
   .entry-module-card .form-input {
     padding: 8px 10px;
-    font-size: 16px;
+    font-size: 12px;
     border: 1px solid #dfe4e8;
     border-radius: 3px;
     width: 100%;
@@ -688,6 +694,10 @@
     min-height: 34px;
     margin: 0;
     box-sizing: border-box;
+  }
+
+  .entry-module-card .form-input::placeholder {
+    font-size: 12px;
   }
   
   .entry-module-card .form-input:focus {
@@ -728,10 +738,10 @@
   .entry-module-card .btn-submit,
   .entry-module-card .btn-reset {
     padding: 10px 12px;
-    font-size: 13px;
-    flex: 1 1 calc(50% - 2px);
+    font-size: 11px;
+    flex: 1 1 calc(50% - 4px);
     min-width: 0;
-    max-width: calc(20% - 2px);
+    max-width: 48%;
     margin: 0;
     box-sizing: border-box;
   }

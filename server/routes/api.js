@@ -18,6 +18,18 @@ import {
   getPreviousQuarterEntry
 } from '../controllers/dataController.js'
 
+import {
+  getAllQuizzes,
+  getQuizById,
+  createQuiz,
+  updateQuiz,
+  submitQuizAttempt,
+  getUserAttempts,
+  getAttemptDetails,
+  getQuizStatistics,
+  deleteQuiz
+} from '../controllers/quizController.js'
+
 const router = express.Router()
 
 // Get all data from PMSFMaster table
@@ -64,5 +76,36 @@ router.put('/pmsf-master/:code', updatePMSFMaster)
 
 // Delete record (mark as deleted)
 router.delete('/pmsf-master/:code', deletePMSFMaster)
+
+// ============================================
+// Quiz Routes
+// ============================================
+
+// Get all active quizzes
+router.get('/quizzes', getAllQuizzes)
+
+// Get quiz by ID with questions and answers
+router.get('/quizzes/:quizId', getQuizById)
+
+// Create new quiz
+router.post('/quizzes', createQuiz)
+
+// Update existing quiz
+router.put('/quizzes/:quizId', updateQuiz)
+
+// Submit quiz attempt
+router.post('/quiz-attempts', submitQuizAttempt)
+
+// Get user's quiz attempt history
+router.get('/quiz-attempts/user/:userId', getUserAttempts)
+
+// Get attempt details with answers
+router.get('/quiz-attempts/:attemptId', getAttemptDetails)
+
+// Get quiz statistics
+router.get('/quizzes/:quizId/statistics', getQuizStatistics)
+
+// Delete quiz (soft delete)
+router.delete('/quizzes/:quizId', deleteQuiz)
 
 export default router

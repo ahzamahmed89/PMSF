@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import Button from './Button';
+import FormInput from './FormInput';
+import FormSelect from './FormSelect';
+import ErrorMessage from './ErrorMessage';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/DataManager.css';
 
 const api = axios.create({
@@ -636,21 +641,34 @@ const DataManager = () => {
     }
   };
 
-  if (loading) return <div className="container"><p>Loading...</p></div>;
-  if (error) return <div className="container"><p style={{ color: 'red' }}>Error: {error}</p></div>;
+  if (loading) return <LoadingSpinner text="Loading checklist data..." fullPage />;
+  if (error) return (
+    <div className="container">
+      <ErrorMessage message={error} type="error" />
+    </div>
+  );
 
   return (
     <div className="container">
       <div className="header-with-back">
-        <Link to="/" className="btn-back">← Back Home</Link>
+        <Button 
+          variant="back"
+          onClick={() => window.location.href = '/'}
+          icon="←"
+          className="btn-back"
+        >
+          Back Home
+        </Button>
         <h1 className="checklist-title">Checklist Manager</h1>
       </div>
       
       {/* Notification */}
       {notification && (
-        <div className="notification">
-          {notification}
-        </div>
+        <ErrorMessage 
+          message={notification}
+          type="success"
+          onDismiss={() => setNotification(null)}
+        />
       )}
 
       {/* Add New Record Section */}
@@ -712,22 +730,21 @@ const DataManager = () => {
                 required
               />
             </div>
-            <div className="form-group">
-              <label>Default Status</label>
-              <select
-                value={newRecord.V_Status}
-                onChange={(e) => setNewRecord({ ...newRecord, V_Status: e.target.value })}
-                required
-              >
-                <option value="">-- Select Status --</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-                <option value="NA">NA</option>
-              </select>
-            </div>
+            <FormSelect
+              label="Default Status"
+              value={newRecord.V_Status}
+              onChange={(e) => setNewRecord({ ...newRecord, V_Status: e.target.value })}
+              options={[
+                { value: 'Yes', label: 'Yes' },
+                { value: 'No', label: 'No' },
+                { value: 'NA', label: 'NA' }
+              ]}
+              placeholder="-- Select Status --"
+              required
+            />
           </div>
 
-          <button type="submit" className="btn btn-add-form">Add Record</button>
+          <Button type="submit" variant="primary" className="btn-add-form">Add Record</Button>
         </form>
       </section>
 
@@ -1049,12 +1066,13 @@ const DataManager = () => {
 
       {/* Submit Button */}
       <div className="submit-section">
-        <button
-          className="btn btn-success btn-large"
+        <Button
+          variant="success"
+          size="large"
           onClick={handleSubmitAll}
         >
           Submit All Changes
-        </button>
+        </Button>
       </div>
     </div>
   );

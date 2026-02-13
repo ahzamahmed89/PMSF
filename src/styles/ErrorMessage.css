@@ -1,0 +1,142 @@
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 12px 0;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  font-size: 18px;
+  font-weight: bold;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.error-text {
+  flex: 1;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.error-dismiss:hover {
+  opacity: 1;
+}
+
+/* Error Type Variants */
+.error-error {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  color: #c41e3a;
+}
+
+.error-error .error-icon {
+  background-color: #c41e3a;
+  color: white;
+}
+
+.error-error .error-dismiss:hover {
+  background-color: rgba(196, 30, 58, 0.1);
+}
+
+.error-success {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.error-success .error-icon {
+  background-color: #27ae60;
+  color: white;
+}
+
+.error-success .error-dismiss:hover {
+  background-color: rgba(39, 174, 96, 0.1);
+}
+
+.error-warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+}
+
+.error-warning .error-icon {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.error-warning .error-dismiss:hover {
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.error-info {
+  background-color: #d1ecf1;
+  border: 1px solid #bee5eb;
+  color: #0c5460;
+}
+
+.error-info .error-icon {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.error-info .error-dismiss:hover {
+  background-color: rgba(23, 162, 184, 0.1);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .error-message {
+    font-size: 12px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .error-icon {
+    font-size: 16px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .error-dismiss {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}

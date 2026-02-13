@@ -2,6 +2,11 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import BranchInformation from './BranchInformation';
+import Button from './Button';
+import FormSelect from './FormSelect';
+import Modal from './Modal';
+import ErrorMessage from './ErrorMessage';
+import LoadingSpinner from './LoadingSpinner';
 import '../styles/ViewModule.css';
 
 export default function ViewModule() {
@@ -328,16 +333,21 @@ export default function ViewModule() {
   return (
     <div className="view-module-container">
       <div className="view-module-wrapper">
-        <button className="btn-back-view" onClick={() => navigate('/')}>
-          ← Back to Home
-        </button>
+        <Button 
+          variant="back" 
+          onClick={() => navigate('/')}
+          icon="←"
+          className="btn-back-view"
+        >
+          Back to Home
+        </Button>
 
         <div className="view-module-header">
           <h1 className="view-module-title">View Visit Data</h1>
           <div className="waving-banner">
             <div className="banner-pole"></div>
             <div className="banner-flag">
-              <span>Physical Mystery Shopping</span>
+              <span>Service & Quality</span>
             </div>
           </div>
           <p className="view-module-subtitle">Search and view submitted visit records</p>
@@ -355,51 +365,51 @@ export default function ViewModule() {
                 <h2 className="section-title">Period Selection</h2>
                 
                 <div className="period-inputs">
-                  <div className="form-group">
-                    <label htmlFor="year">Year</label>
-                    <select
-                      id="year"
-                      className="form-input"
-                      value={formData.year}
-                      onChange={handleYearChange}
-                      required
-                    >
-                      {[currentYear - 1, currentYear, currentYear + 1].map(year => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <FormSelect
+                    label="Year"
+                    id="year"
+                    value={formData.year}
+                    onChange={handleYearChange}
+                    options={[currentYear - 1, currentYear, currentYear + 1]}
+                    required
+                  />
 
-                  <div className="form-group">
-                    <label htmlFor="qtr">Quarter</label>
-                    <select
-                      id="qtr"
-                      className="form-input"
-                      value={formData.qtr}
-                      onChange={handleQtrChange}
-                      required
-                    >
-                      <option value={1}>Q1 (Jan-Mar)</option>
-                      <option value={2}>Q2 (Apr-Jun)</option>
-                      <option value={3}>Q3 (Jul-Sep)</option>
-                      <option value={4}>Q4 (Oct-Dec)</option>
-                    </select>
-                  </div>
+                  <FormSelect
+                    label="Quarter"
+                    id="qtr"
+                    value={formData.qtr}
+                    onChange={handleQtrChange}
+                    options={[
+                      { value: 1, label: 'Q1 (Jan-Mar)' },
+                      { value: 2, label: 'Q2 (Apr-Jun)' },
+                      { value: 3, label: 'Q3 (Jul-Sep)' },
+                      { value: 4, label: 'Q4 (Oct-Dec)' }
+                    ]}
+                    required
+                  />
                 </div>
               </div>
             </div>
 
             {/* Error Message */}
             {error && viewed && (
-              <div className="error-message" style={{ marginBottom: '20px' }}>
-                ❌ {error}
-              </div>
+              <ErrorMessage 
+                message={error}
+                type="error"
+                onDismiss={() => setError('')}
+              />
             )}
 
             <div className="form-actions">
-              <button type="submit" className="btn-view" disabled={loading}>
-                {loading ? 'Loading...' : 'View Data'}
-              </button>
+              <Button 
+                type="submit" 
+                variant="primary"
+                disabled={loading}
+                loading={loading}
+                className="btn-view"
+              >
+                View Data
+              </Button>
             </div>
           </form>
         </div>
@@ -409,12 +419,14 @@ export default function ViewModule() {
           <div className="view-results-container">
             <div className="view-results-header">
               <h2>Visit Summary</h2>
-              <button 
-                className="btn-back-view" 
+              <Button 
+                variant="back"
                 onClick={() => setViewData(null)}
+                icon="←"
+                className="btn-back-view"
               >
-                ← Back to Search
-              </button>
+                Back to Search
+              </Button>
             </div>
 
             {/* Visit Summary Card */}
@@ -660,7 +672,7 @@ export default function ViewModule() {
                                     <div className="image-previews">
                                       {activity.imglink1 && (
                                         <img 
-                                          src={`http://localhost:5000/images/${activity.imglink1}`}
+                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink1}`}
                                           alt="Image 1"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink1)}
@@ -668,7 +680,7 @@ export default function ViewModule() {
                                       )}
                                       {activity.imglink2 && (
                                         <img 
-                                          src={`http://localhost:5000/images/${activity.imglink2}`}
+                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink2}`}
                                           alt="Image 2"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink2)}
@@ -676,7 +688,7 @@ export default function ViewModule() {
                                       )}
                                       {activity.imglink3 && (
                                         <img 
-                                          src={`http://localhost:5000/images/${activity.imglink3}`}
+                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink3}`}
                                           alt="Image 3"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink3)}
@@ -707,18 +719,18 @@ export default function ViewModule() {
       </div>
 
       {/* Image Preview Modal */}
-      {imageModal.isOpen && (
-        <div className="image-modal-overlay" onClick={closeImageModal}>
-          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeImageModal}>✕</button>
-            <img 
-              src={`http://localhost:5000/images/${imageModal.imagePath}`}
-              alt="Full size preview"
-              className="modal-image"
-            />
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={imageModal.isOpen}
+        onClose={closeImageModal}
+        title="Image Preview"
+        size="large"
+      >
+        <img 
+          src={`http://${window.location.hostname}:5000/images/${imageModal.imagePath}`}
+          alt="Full size preview"
+          style={{ width: '100%', height: 'auto' }}
+        />
+      </Modal>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import FormInput from './FormInput';
 
 export default function VisitOfficerApproval({ 
   visitOfficerName, 
@@ -10,28 +11,20 @@ export default function VisitOfficerApproval({
 
   return (
     <>
-      <div className="form-group">
-        <label htmlFor="visitOfficerName">Visit Officer Name</label>
-        <input
-          type="text"
-          id="visitOfficerName"
-          value={visitOfficerName || defaultOfficerName}
-          onChange={(e) => onOfficerNameChange && onOfficerNameChange(e.target.value)}
-          className="form-input"
-        />
-      </div>
+      <FormInput
+        label="Visit Officer Name"
+        id="visitOfficerName"
+        value={visitOfficerName || defaultOfficerName}
+        onChange={(e) => onOfficerNameChange && onOfficerNameChange(e.target.value)}
+      />
       
-      <div className="form-group">
-        <label htmlFor="approvedByBMOM">Approved By BM/OM</label>
-        <input
-          type="text"
-          id="approvedByBMOM"
-          placeholder="Enter approver name (BM/OM)"
-          value={approvedBy || ''}
-          onChange={(e) => onApprovedByChange && onApprovedByChange(e.target.value)}
-          className="form-input"
-        />
-      </div>
+      <FormInput
+        label="Approved By BM/OM"
+        id="approvedByBMOM"
+        placeholder="Enter approver name (BM/OM)"
+        value={approvedBy || ''}
+        onChange={(e) => onApprovedByChange && onApprovedByChange(e.target.value)}
+      />
     </>
   );
 }
