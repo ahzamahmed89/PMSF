@@ -19,13 +19,13 @@ html, body {
   height: 100vh;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .home-container {
   min-height: 100vh;
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #1e7e34 0%, #0d5a2e 100%);

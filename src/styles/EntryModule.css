@@ -1,21 +1,21 @@
 @media (max-width: 480px) {
   .entry-module-container,
   .entry-module-container * {
-    font-size: 0.85rem !important;
+    font-size: 0.70rem !important;
   }
   .entry-module-title {
-    font-size: 1.1rem !important;
+    font-size: 1.0rem !important;
   }
   .entry-module-label {
-    font-size: 0.95rem !important;
+    font-size: 0.85rem !important;
   }
   .entry-module-input,
   .entry-module-select,
   .entry-module-textarea {
-    font-size: 0.9rem !important;
+    font-size: 0.7rem !important;
   }
   .entry-module-btn {
-    font-size: 0.95rem !important;
+    font-size: 0.75rem !important;
   }
 }
 /* Entry Module Styles */
@@ -29,6 +29,7 @@
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
+  overflow-y: auto;
 }
 
 .entry-module-wrapper {
