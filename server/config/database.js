@@ -16,12 +16,18 @@ let pool
 
 async function initializePool() {
   try {
+    console.log('Attempting to connect to database with config:', {
+      server: config.server,
+      database: config.database,
+      user: config.user
+    })
     pool = new sql.ConnectionPool(config)
     await pool.connect()
-    console.log('Connected to MSSQL database')
+    console.log('✓ Connected to MSSQL database')
     return pool
   } catch (error) {
-    console.error('Database connection failed:', error)
+    console.error('✗ Database connection failed:', error.message)
+    console.error('Full error:', error)
     process.exit(1)
   }
 }

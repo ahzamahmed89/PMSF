@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Button from './Button';
 import FormInput from './FormInput';
 import ErrorMessage from './ErrorMessage';
 import logo2 from '../Img/logo2.png';
+import { API_URL } from '../config/api';
 import '../styles/Login.css';
 
 export default function Login({ onLogin }) {
@@ -26,22 +28,47 @@ export default function Login({ onLogin }) {
 
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Simple authentication (replace with real API call)
-      const username = formData.username.trim().toLowerCase();
-      const password = formData.password.trim();
-      
-      if (username === 'admin' && password === 'admin') {
+    try {
+      console.log('Attempting login with API URL:', API_URL);
+      const response = await axios.post(`${API_URL}/auth/login`, {
+        username: formData.username.trim(),
+        password: formData.password
+      }, {
+        timeout: 10000
+      });
+
+      if (response.data.success) {
+        // Store authentication data
+        localStorage.setItem('authToken', response.data.token);
         localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('username', formData.username);
-        if (onLogin) onLogin(formData.username);
+        localStorage.setItem('username', response.data.user.username);
+        localStorage.setItem('userId', response.data.user.userId);
+        localStorage.setItem('userEmail', response.data.user.email);
+        localStorage.setItem('userFullName', response.data.user.fullName);
+        localStorage.setItem('userRoles', JSON.stringify(response.data.user.roles));
+        localStorage.setItem('userPermissions', JSON.stringify(response.data.user.permissions || []));
+
+        if (onLogin) onLogin(response.data.user.username);
         navigate('/home');
-      } else {
-        setError('Invalid username or password');
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      console.error('API URL attempted:', API_URL);
+      console.error('Error response:', error.response?.data);
+      console.error('Error message:', error.message);
+      
+      let errorMsg = 'Login failed. Please try again.';
+      if (error.code === 'ECONNABORTED') {
+        errorMsg = 'Connection timeout - API server not responding';
+      } else if (error.message === 'Network Error') {
+        errorMsg = 'Network error - Cannot reach API server';
+      } else if (error.response?.data?.error) {
+        errorMsg = error.response.data.error;
+      }
+      setError(errorMsg);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

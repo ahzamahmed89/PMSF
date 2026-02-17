@@ -1,9 +1,19 @@
+html, body {
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
 .view-module-container {
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  width: 100vw;
+  width: 100%;
   background: linear-gradient(135deg, #e9eaee6d 0%, #010700 100%);
   padding: 5px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  
+
 }
 
 .view-module-wrapper {
@@ -22,6 +32,11 @@
   font-weight: 600;
   transition: all 0.3s ease;
   margin-bottom: 10px;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  z-index: 20;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 

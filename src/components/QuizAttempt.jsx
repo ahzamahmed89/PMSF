@@ -4,8 +4,7 @@ import axios from 'axios';
 import '../styles/QuizAttempt.css';
 import Button from './Button';
 import Modal from './Modal';
-
-const API_URL = 'http://localhost:5000/api';
+import { API_URL } from '../config/api';
 
 const QuizAttempt = () => {
   const navigate = useNavigate();

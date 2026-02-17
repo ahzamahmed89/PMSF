@@ -30,7 +30,55 @@ import {
   deleteQuiz
 } from '../controllers/quizController.js'
 
+// Import auth and admin controllers
+import * as authController from '../controllers/authController.js'
+import * as adminController from '../controllers/adminController.js'
+import * as auth from '../middleware/auth.js'
+
 const router = express.Router()
+
+// ============================================
+// Authentication Routes (Public)
+// ============================================
+
+// Login
+router.post('/auth/login', authController.login)
+
+// Verify token
+router.get('/auth/verify', authController.verifyToken)
+
+// Change password (authenticated)
+router.post('/auth/change-password', auth.authenticateToken, authController.changePassword)
+
+// Register new user (admin only)
+router.post('/auth/register', auth.authenticateToken, auth.requireRole(['Admin']), authController.register)
+
+// ============================================
+// Admin Routes (Admin only)
+// ============================================
+
+// User management
+router.get('/admin/users', auth.authenticateToken, auth.requireRole(['Admin']), adminController.getAllUsers)
+router.post('/admin/users', auth.authenticateToken, auth.requireRole(['Admin']), adminController.createUser)
+router.put('/admin/users/:userId', auth.authenticateToken, auth.requireRole(['Admin']), adminController.updateUser)
+router.post('/admin/users/:userId/reset-password', auth.authenticateToken, auth.requireRole(['Admin']), adminController.resetPassword)
+router.post('/admin/users/:userId/unlock', auth.authenticateToken, auth.requireRole(['Admin']), adminController.unlockAccount)
+
+// Role management
+router.get('/admin/roles', auth.authenticateToken, auth.requireRole(['Admin']), adminController.getAllRoles)
+router.post('/admin/roles', auth.authenticateToken, auth.requireRole(['Admin']), adminController.createRole)
+router.put('/admin/roles/:roleId', auth.authenticateToken, auth.requireRole(['Admin']), adminController.updateRole)
+router.get('/admin/roles/:roleId/permissions', auth.authenticateToken, auth.requireRole(['Admin']), adminController.getRolePermissions)
+
+// Permission management
+router.get('/admin/permissions', auth.authenticateToken, auth.requireRole(['Admin']), adminController.getAllPermissions)
+
+// Audit logs
+router.get('/admin/audit-logs', auth.authenticateToken, auth.requireRole(['Admin']), adminController.getLoginAuditLogs)
+
+// ============================================
+// PMSF Data Routes
+// ============================================
 
 // Get all data from PMSFMaster table
 router.get('/pmsf-master', getPMSFMaster)

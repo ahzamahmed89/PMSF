@@ -8,6 +8,7 @@ import PMSFForm from './PMSFForm'
 import ViewModule from './ViewModule'
 import QuizCreator from './QuizCreator'
 import QuizAttempt from './QuizAttempt'
+import AdminPanel from './AdminPanel'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,6 +32,12 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('username');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userFullName');
+    localStorage.removeItem('userRoles');
+    localStorage.removeItem('userPermissions');
     setIsAuthenticated(false);
     setUsername('');
   };
@@ -85,6 +92,12 @@ function App() {
             path="/quiz-attempt" 
             element={
               isAuthenticated ? <QuizAttempt /> : <Navigate to="/" />
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              isAuthenticated ? <AdminPanel /> : <Navigate to="/" />
             } 
           />
         </Routes>
