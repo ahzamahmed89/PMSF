@@ -4,6 +4,16 @@ import { getPool } from '../config/database.js';
 export const getAllQuizzes = async (req, res) => {
   try {
     const pool = await getPool();
+    
+        // First, auto-expire quizzes that have passed their expiry date
+        await pool.request().query(`
+          UPDATE quizzes 
+          SET is_active = 0 
+          WHERE expiry_date IS NOT NULL 
+            AND expiry_date < CAST(GETDATE() AS DATE) 
+            AND is_active = 1
+        `);
+    
     const result = await pool.request().query(`
       SELECT 
         q.quiz_id,
@@ -13,6 +23,9 @@ export const getAllQuizzes = async (req, res) => {
         q.time_type,
         q.total_time,
         q.time_per_question,
+        q.total_questions_to_show,
+          q.expiry_date,
+          q.is_active,
         q.created_by,
         q.created_at,
         ISNULL(q.updated_at, q.created_at) as updated_at,
@@ -21,7 +34,8 @@ export const getAllQuizzes = async (req, res) => {
       LEFT JOIN quiz_questions qq ON q.quiz_id = qq.quiz_id AND qq.quiz_id = q.quiz_id
       WHERE q.is_active = 1
       GROUP BY q.quiz_id, q.subject, q.passing_marks, q.total_score, 
-               q.time_type, q.total_time, q.time_per_question, 
+               q.time_type, q.total_time, q.time_per_question, q.total_questions_to_show,
+               q.expiry_date, q.is_active,
                q.created_by, q.created_at, q.updated_at
       ORDER BY q.created_at DESC
     `);
@@ -79,6 +93,7 @@ export const getQuizById = async (req, res) => {
           correct_answer: question.correct_answer,
           score: question.score,
           question_order: question.question_order,
+          time_seconds: question.time_seconds,
           created_at: question.created_at,
           updated_at: question.updated_at,
           wrongAnswers: wrongAnswersResult.recordset.map(wa => wa.wrong_answer_text),
@@ -102,7 +117,7 @@ export const getQuizById = async (req, res) => {
 // Create new quiz
 export const createQuiz = async (req, res) => {
   try {
-    const { subject, passingMarks, timeType, totalTime, timePerQuestion, questions, createdBy } = req.body;
+    const { subject, passingMarks, timeType, totalTime, timePerQuestion, totalQuestionsToShow, questions, createdBy, expiryDate, isActive } = req.body;
     
     const pool = await getPool();
     const transaction = pool.transaction();
@@ -121,11 +136,14 @@ export const createQuiz = async (req, res) => {
         .input('timeType', timeType)
         .input('totalTime', totalTime)
         .input('timePerQuestion', timePerQuestion)
+        .input('totalQuestionsToShow', totalQuestionsToShow)
         .input('createdBy', createdBy)
+          .input('expiryDate', expiryDate || null)
+          .input('isActive', isActive !== undefined ? isActive : true)
         .query(`
-          INSERT INTO quizzes (subject, passing_marks, total_score, time_type, total_time, time_per_question, created_by)
+          INSERT INTO quizzes (subject, passing_marks, total_score, time_type, total_time, time_per_question, total_questions_to_show, created_by, expiry_date, is_active)
           OUTPUT INSERTED.quiz_id
-          VALUES (@subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion, @createdBy)
+          VALUES (@subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion, @totalQuestionsToShow, @createdBy, @expiryDate, @isActive)
         `);
       
       const quizId = quizResult.recordset[0].quiz_id;
@@ -141,10 +159,11 @@ export const createQuiz = async (req, res) => {
           .input('correctAnswer', question.correctAnswer)
           .input('score', question.score)
           .input('questionOrder', i + 1)
+          .input('timeSeconds', question.timeSeconds || null)
           .query(`
-            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order)
+            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order, time_seconds)
             OUTPUT INSERTED.question_id
-            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder)
+            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder, @timeSeconds)
           `);
         
         const questionId = questionResult.recordset[0].question_id;
@@ -351,7 +370,7 @@ export const getQuizStatistics = async (req, res) => {
 export const updateQuiz = async (req, res) => {
   try {
     const { quizId } = req.params;
-    const { subject, passingMarks, timeType, totalTime, timePerQuestion, questions, lastEditedBy } = req.body;
+    const { subject, passingMarks, timeType, totalTime, timePerQuestion, totalQuestionsToShow, questions, lastEditedBy, expiryDate, isActive } = req.body;
     
     const pool = await getPool();
     const transaction = pool.transaction();
@@ -371,7 +390,10 @@ export const updateQuiz = async (req, res) => {
         .input('timeType', timeType)
         .input('totalTime', totalTime)
         .input('timePerQuestion', timePerQuestion)
+        .input('totalQuestionsToShow', totalQuestionsToShow)
         .input('lastEditedBy', lastEditedBy)
+          .input('expiryDate', expiryDate || null)
+          .input('isActive', isActive !== undefined ? isActive : true)
         .query(`
           UPDATE quizzes 
           SET subject = @subject, 
@@ -380,7 +402,10 @@ export const updateQuiz = async (req, res) => {
               time_type = @timeType, 
               total_time = @totalTime, 
               time_per_question = @timePerQuestion,
+              total_questions_to_show = @totalQuestionsToShow,
               last_edited_by = @lastEditedBy,
+                            expiry_date = @expiryDate,
+                            is_active = @isActive,
               updated_at = GETDATE()
           WHERE quiz_id = @quizId
         `);
@@ -412,10 +437,11 @@ export const updateQuiz = async (req, res) => {
           .input('correctAnswer', question.correctAnswer)
           .input('score', question.score)
           .input('questionOrder', i + 1)
+          .input('timeSeconds', question.timeSeconds || null)
           .query(`
-            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order)
+            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order, time_seconds)
             OUTPUT INSERTED.question_id
-            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder)
+            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder, @timeSeconds)
           `);
         
         const questionId = questionResult.recordset[0].question_id;

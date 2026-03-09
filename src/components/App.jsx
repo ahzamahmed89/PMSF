@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './Login'
+import PasswordRecovery from './PasswordRecovery'
+import ResetPassword from './ResetPassword'
 import Home from './Home'
 import DataManager from './DataManager'
 import EntryModule from './EntryModule'
@@ -9,6 +11,8 @@ import ViewModule from './ViewModule'
 import QuizCreator from './QuizCreator'
 import QuizAttempt from './QuizAttempt'
 import AdminPanel from './AdminPanel'
+import EmployeeManager from './EmployeeManager'
+import QuizAssignment from './QuizAssignment'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,6 +55,18 @@ function App() {
             element={
               isAuthenticated ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />
             } 
+          />
+          <Route 
+            path="/login" 
+            element={<Login onLogin={handleLogin} />}
+          />
+          <Route 
+            path="/password-recovery" 
+            element={<PasswordRecovery />}
+          />
+          <Route 
+            path="/reset-password" 
+            element={<ResetPassword />}
           />
           <Route 
             path="/home" 
@@ -98,6 +114,18 @@ function App() {
             path="/admin" 
             element={
               isAuthenticated ? <AdminPanel /> : <Navigate to="/" />
+            } 
+          />
+          <Route 
+            path="/employees" 
+            element={
+              isAuthenticated ? <EmployeeManager /> : <Navigate to="/" />
+            } 
+          />
+          <Route 
+            path="/quiz-assignments" 
+            element={
+              isAuthenticated ? <QuizAssignment /> : <Navigate to="/" />
             } 
           />
         </Routes>

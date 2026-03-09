@@ -295,7 +295,7 @@ export default function PreviousQuarterComparison({
                           overflow: 'hidden'
                         }}>
                           <img
-                            src={`http://localhost:5000/images/${img}`}
+                            src={`/images/${img}`}
                             alt={`Image ${idx + 1}`}
                             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
                           />

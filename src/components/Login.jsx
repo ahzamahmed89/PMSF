@@ -137,7 +137,14 @@ export default function Login({ onLogin }) {
                 <input type="checkbox" />
                 <span>Remember me</span>
               </label>
-              <a href="#" className="forgot-password">Forgot password?</a>
+              <button 
+                type="button"
+                onClick={() => navigate('/password-recovery')}
+                className="forgot-password"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', textDecoration: 'underline' }}
+              >
+                Forgot password?
+              </button>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

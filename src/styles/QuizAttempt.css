@@ -236,6 +236,24 @@
   font-weight: 600;
 }
 
+.question-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.question-time {
+  background: #2196F3;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .question-text {
   color: #333;
   font-size: 18px;

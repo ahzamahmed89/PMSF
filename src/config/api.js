@@ -1,8 +1,8 @@
 // Dynamically determine the API URL based on the host
 export const getAPIURL = () => {
-  // Always use /api proxy endpoint which Vite will handle
-  // This avoids mixed content (HTTPS->HTTP) issues
-  return '/api';
+  // Point to backend server on port 5000 with /api prefix
+  const hostname = window.location.hostname || 'localhost';
+  return `http://${hostname}:5000/api`;
 };
 
 export const API_URL = getAPIURL();

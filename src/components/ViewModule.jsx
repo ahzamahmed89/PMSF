@@ -7,6 +7,7 @@ import FormSelect from './FormSelect';
 import Modal from './Modal';
 import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
+import BannerFlag from './BannerFlag';
 import '../styles/ViewModule.css';
 
 export default function ViewModule() {
@@ -108,6 +109,15 @@ export default function ViewModule() {
   const [viewed, setViewed] = useState(false);
   const [previousVisit, setPreviousVisit] = useState(null);
   const [previousVisitLoading, setPreviousVisitLoading] = useState(false);
+  const [approvingVisit, setApprovingVisit] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState('');
+  const [approvalMessage, setApprovalMessage] = useState('');
+
+  // Get current username from localStorage
+  useEffect(() => {
+    const username = localStorage.getItem('username') || '';
+    setCurrentUsername(username);
+  }, []);
 
   // Handle branch data change from BranchInformation component
   const handleBranchDataChange = useCallback((data) => {
@@ -241,6 +251,43 @@ export default function ViewModule() {
     return prevActivity && prevActivity.V_Status?.toLowerCase() === 'no';
   };
 
+  // Handle visit approval
+  const handleApproveVisit = async () => {
+    if (!viewData?.visit?.visitcode) {
+      setApprovalMessage({ type: 'error', text: 'Invalid visit data' });
+      return;
+    }
+
+    setApprovingVisit(true);
+    setApprovalMessage('');
+
+    try {
+      const response = await axios.post(
+        `http://${window.location.hostname}:5000/api/approve-visit/${viewData.visit.visitcode}`,
+        { username: currentUsername }
+      );
+
+      if (response.data.success) {
+        setApprovalMessage({ type: 'success', text: 'Visit Reviewed Successfully!' });
+        // Update the local state to reflect the approval
+        setViewData(prev => ({
+          ...prev,
+          visit: {
+            ...prev.visit,
+            ApprovalStatus: 'Done'
+          }
+        }));
+      } else {
+        setApprovalMessage({ type: 'error', text: response.data.message || 'Failed to approve visit' });
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to approve visit';
+      setApprovalMessage({ type: 'error', text: errorMsg });
+    } finally {
+      setApprovingVisit(false);
+    }
+  };
+
   // Group ALL activities by Master Cat (Segment) first, then by Category (unfiltered for score calculation)
   const allGroupedBySegment = useMemo(() => {
     if (!viewData?.activities) return {};
@@ -337,19 +384,14 @@ export default function ViewModule() {
           variant="back" 
           onClick={() => navigate('/')}
           icon="←"
-          className="btn-back-view"
+          className="btn-back-view btn-position-override"
         >
           Back to Home
         </Button>
 
         <div className="view-module-header">
           <h1 className="view-module-title">View Visit Data</h1>
-          <div className="waving-banner">
-            <div className="banner-pole"></div>
-            <div className="banner-flag">
-              <span>Service & Quality</span>
-            </div>
-          </div>
+          <BannerFlag text="Service & Quality" />
           <p className="view-module-subtitle">Search and view submitted visit records</p>
         </div>
 
@@ -423,7 +465,7 @@ export default function ViewModule() {
                 variant="back"
                 onClick={() => setViewData(null)}
                 icon="←"
-                className="btn-back-view"
+                className="btn-position-override"
               >
                 Back to Search
               </Button>
@@ -479,16 +521,66 @@ export default function ViewModule() {
                   <span>{viewData.visit.VisitBy}</span>
                 </div>
                 <div className="summary-item">
-                  <label>Approved By</label>
+                  <label>Reviewed By</label>
                   <span>{viewData.visit.ApprovedBy_OM_BM || 'N/A'}</span>
                 </div>
                 <div className="summary-item">
+                  <label>Approval Status</label>
+                  <span className={`approval-status-badge ${
+                    viewData.visit.ApprovalStatus === 'Done' 
+                      ? 'approval-status-reviewed' 
+                      : 'approval-status-pending'
+                  }`}>
+                    {viewData.visit.ApprovalStatus === 'Done' ? '✓ Reviewed' : 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="summary-row summary-row-overall-score">
+                <div className="summary-item summary-item-overall-score">
                   <label>Overall Score</label>
                   <span className="score-badge">{viewData.visit.Score}%</span>
                 </div>
               </div>
 
-              <div style={{ margin: '6px 0 10px', fontWeight: 700, color: '#555' }}>
+              {/* Approval Section */}
+              {currentUsername && viewData.visit.ApprovedBy_OM_BM && 
+               currentUsername.toUpperCase() === viewData.visit.ApprovedBy_OM_BM.toUpperCase() && 
+               viewData.visit.ApprovalStatus !== 'Done' && (
+                <div className="approval-request-section">
+                  <p className="approval-request-text">
+                    You are the reviewer for this visit. Click below to approve it.
+                  </p>
+                  <Button 
+                    variant="primary"
+                    onClick={handleApproveVisit}
+                    disabled={approvingVisit}
+                    loading={approvingVisit}
+                    className="btn-approve"
+                  >
+                    Review Visit
+                  </Button>
+                  {approvalMessage && (
+                    <div className={`approval-message ${
+                      approvalMessage.type === 'success' 
+                        ? 'approval-message-success' 
+                        : 'approval-message-error'
+                    }`}>
+                      {approvalMessage.text}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewData.visit.ApprovalStatus === 'Done' && (
+                <div className="approval-done-section">
+                  <p className="approval-done-text">
+                    ✓ This visit has been reviewed by the branch
+                  </p>
+                </div>
+              )}
+
+              <div className="previous-visit-header">
                 Previous Visit Details
               </div>
               <div className="summary-row">
@@ -637,9 +729,8 @@ export default function ViewModule() {
                           return (
                           <div key={idx} className={`activity-item ${activity.V_Status?.toLowerCase() === 'no' ? 'activity-no' : ''}`}>
                             <div 
-                              className="activity-header" 
+                              className="activity-header activity-header-clickable" 
                               onClick={() => toggleActivity(segment, category, idx)}
-                              style={{ cursor: 'pointer' }}
                             >
                               <span className="activity-name">{activity.Activity}</span>
                               <span className={`status-badge status-${activity.V_Status?.toLowerCase()}`}>
@@ -672,7 +763,7 @@ export default function ViewModule() {
                                     <div className="image-previews">
                                       {activity.imglink1 && (
                                         <img 
-                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink1}`}
+                                          src={`/images/${activity.imglink1}`}
                                           alt="Image 1"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink1)}
@@ -680,7 +771,7 @@ export default function ViewModule() {
                                       )}
                                       {activity.imglink2 && (
                                         <img 
-                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink2}`}
+                                          src={`/images/${activity.imglink2}`}
                                           alt="Image 2"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink2)}
@@ -688,7 +779,7 @@ export default function ViewModule() {
                                       )}
                                       {activity.imglink3 && (
                                         <img 
-                                          src={`http://${window.location.hostname}:5000/images/${activity.imglink3}`}
+                                          src={`/images/${activity.imglink3}`}
                                           alt="Image 3"
                                           className="preview-thumbnail"
                                           onClick={() => openImageModal(activity.imglink3)}
@@ -726,12 +817,11 @@ export default function ViewModule() {
         size="large"
       >
         <img 
-          src={`http://${window.location.hostname}:5000/images/${imageModal.imagePath}`}
+          src={`/images/${imageModal.imagePath}`}
           alt="Full size preview"
-          style={{ width: '100%', height: 'auto' }}
+          className="modal-image-full"
         />
       </Modal>
     </div>
   );
 }
-

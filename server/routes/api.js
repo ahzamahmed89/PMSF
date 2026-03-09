@@ -15,7 +15,8 @@ import {
   getExistingPMSFData,
   updatePMSFFormSubmission,
   getVisitData,
-  getPreviousQuarterEntry
+  getPreviousQuarterEntry,
+  approveVisit
 } from '../controllers/dataController.js'
 
 import {
@@ -29,6 +30,14 @@ import {
   getQuizStatistics,
   deleteQuiz
 } from '../controllers/quizController.js'
+
+import {
+  getMarqueeItems,
+  addMarqueeItem,
+  updateMarqueeItem,
+  deleteMarqueeItem,
+  toggleMarqueeItem
+} from '../controllers/marqueeController.js'
 
 // Import auth and admin controllers
 import * as authController from '../controllers/authController.js'
@@ -49,6 +58,12 @@ router.get('/auth/verify', authController.verifyToken)
 
 // Change password (authenticated)
 router.post('/auth/change-password', auth.authenticateToken, authController.changePassword)
+
+// Request password reset
+router.post('/auth/request-password-reset', authController.requestPasswordReset)
+
+// Reset password with code
+router.post('/auth/reset-password', authController.resetPassword)
 
 // Register new user (admin only)
 router.post('/auth/register', auth.authenticateToken, auth.requireRole(['Admin']), authController.register)
@@ -100,6 +115,9 @@ router.get('/visit-data/:branchCode/:year/:qtr', getVisitData)
 
 // Get previous quarter entry for comparison
 router.get('/previous-quarter/:branchCode/:year/:quarter', getPreviousQuarterEntry)
+
+// Approve visit
+router.post('/approve-visit/:visitcode', approveVisit)
 
 // Add new record
 router.post('/pmsf-master', addPMSFMaster)
@@ -155,5 +173,21 @@ router.get('/quizzes/:quizId/statistics', getQuizStatistics)
 
 // Delete quiz (soft delete)
 router.delete('/quizzes/:quizId', deleteQuiz)
+
+// ===== Marquee Routes =====
+// Get all active marquee items (public)
+router.get('/marquee-items', getMarqueeItems)
+
+// Add new marquee item (requires authentication)
+router.post('/marquee-items', auth.authenticateToken, addMarqueeItem)
+
+// Update marquee item (requires authentication)
+router.put('/marquee-items/:id', auth.authenticateToken, updateMarqueeItem)
+
+// Delete marquee item (requires authentication)
+router.delete('/marquee-items/:id', auth.authenticateToken, deleteMarqueeItem)
+
+// Toggle marquee item enabled/disabled status (requires authentication)
+router.patch('/marquee-items/:id/toggle', auth.authenticateToken, toggleMarqueeItem)
 
 export default router

@@ -16,6 +16,8 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.13.3",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",

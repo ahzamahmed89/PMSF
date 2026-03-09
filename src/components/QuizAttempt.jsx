@@ -41,6 +41,7 @@ const QuizAttempt = () => {
         timeType: quiz.time_type,
         totalTime: quiz.total_time,
         timePerQuestion: quiz.time_per_question,
+        totalQuestionsToShow: quiz.total_questions_to_show,
         questions: [] // Will be loaded when quiz is started
       }));
       
@@ -85,6 +86,22 @@ const QuizAttempt = () => {
       // Fetch full quiz details including questions
       const response = await axios.get(`${API_URL}/quizzes/${quiz.id}`);
       
+      const allQuestions = response.data.questions.map(q => ({
+        id: q.question_id,
+        questionText: q.question_text,
+        correctAnswer: q.correct_answer,
+        wrongAnswers: q.wrongAnswers,
+        score: q.score,
+        numberOfChoices: q.number_of_choices,
+        timeSeconds: q.time_seconds // Individual time allocation for this question
+      }));
+
+      // Get totalQuestionsToShow - if not specified, use all questions
+      const totalQuestionsToShow = response.data.total_questions_to_show || allQuestions.length;
+      
+      // Randomly select the specified number of questions
+      const selectedQuestions = randomlySelectQuestions(allQuestions, totalQuestionsToShow);
+      
       const fullQuiz = {
         id: response.data.quiz_id,
         subject: response.data.subject,
@@ -93,14 +110,8 @@ const QuizAttempt = () => {
         timeType: response.data.time_type,
         totalTime: response.data.total_time,
         timePerQuestion: response.data.time_per_question,
-        questions: response.data.questions.map(q => ({
-          id: q.question_id,
-          questionText: q.question_text,
-          correctAnswer: q.correct_answer,
-          wrongAnswers: q.wrongAnswers,
-          score: q.score,
-          numberOfChoices: q.number_of_choices
-        }))
+        totalQuestionsToShow: totalQuestionsToShow,
+        questions: selectedQuestions
       };
       
       setSelectedQuiz(fullQuiz);
@@ -114,7 +125,9 @@ const QuizAttempt = () => {
       if (fullQuiz.timeType === 'total') {
         setTimeLeft(fullQuiz.totalTime * 60); // Convert minutes to seconds
       } else {
-        setTimeLeft(fullQuiz.timePerQuestion);
+        // Use individual question time if available, otherwise use quiz default
+        const firstQuestionTime = fullQuiz.questions[0].timeSeconds || fullQuiz.timePerQuestion;
+        setTimeLeft(firstQuestionTime);
       }
       
       // Shuffle answers for first question
@@ -127,6 +140,24 @@ const QuizAttempt = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const randomlySelectQuestions = (questions, count) => {
+    // Ensure we don't try to select more questions than available
+    const selectCount = Math.min(count, questions.length);
+    
+    // Create a copy of the questions array
+    const questionsCopy = [...questions];
+    const selectedQuestions = [];
+    
+    // Fisher-Yates shuffle and select
+    for (let i = 0; i < selectCount; i++) {
+      const randomIndex = Math.floor(Math.random() * (questionsCopy.length - i)) + i;
+      [questionsCopy[i], questionsCopy[randomIndex]] = [questionsCopy[randomIndex], questionsCopy[i]];
+      selectedQuestions.push(questionsCopy[i]);
+    }
+    
+    return selectedQuestions;
   };
 
   const shuffleAnswersForQuestion = (question) => {
@@ -162,7 +193,8 @@ const QuizAttempt = () => {
       
       // If using per-question timer, reset time
       if (selectedQuiz.timeType === 'perQuestion') {
-        setTimeLeft(selectedQuiz.timePerQuestion);
+        const nextQuestionTime = selectedQuiz.questions[nextIndex].timeSeconds || selectedQuiz.timePerQuestion;
+        setTimeLeft(nextQuestionTime);
       }
     }
   };
@@ -175,7 +207,8 @@ const QuizAttempt = () => {
       
       // If using per-question timer, reset time
       if (selectedQuiz.timeType === 'perQuestion') {
-        setTimeLeft(selectedQuiz.timePerQuestion);
+        const prevQuestionTime = selectedQuiz.questions[prevIndex].timeSeconds || selectedQuiz.timePerQuestion;
+        setTimeLeft(prevQuestionTime);
       }
     }
   };
@@ -412,7 +445,12 @@ const QuizAttempt = () => {
       <div className="question-container">
         <div className="question-header">
           <h2>Question {currentQuestionIndex + 1}</h2>
-          <span className="question-score">{currentQuestion.score} points</span>
+          <div className="question-meta">
+            <span className="question-score">{currentQuestion.score} points</span>
+            {selectedQuiz.timeType === 'perQuestion' && currentQuestion.timeSeconds && (
+              <span className="question-time">⏱ {currentQuestion.timeSeconds} seconds</span>
+            )}
+          </div>
         </div>
         <p className="question-text">{currentQuestion.questionText}</p>
 

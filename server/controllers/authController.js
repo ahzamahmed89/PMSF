@@ -349,9 +349,147 @@ const resetFailedAttempts = async (userId) => {
   }
 };
 
+// Request password reset
+const requestPasswordReset = async (req, res) => {
+  const { username } = req.body;
+  
+  try {
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    const pool = await getPool();
+    
+    // Check if user exists
+    const userResult = await pool.request()
+      .input('username', sql.NVarChar(50), username)
+      .query(`
+        SELECT UserID, Username, Email
+        FROM UserLogins
+        WHERE Username = @username
+      `);
+    
+    if (userResult.recordset.length === 0) {
+      // Don't reveal if user exists (security)
+      return res.json({ 
+        success: true, 
+        message: 'If the username exists, a password reset code will be sent.' 
+      });
+    }
+
+    const user = userResult.recordset[0];
+    
+    // Generate a reset token (6 digit code)
+    const resetCode = Math.random().toString().substring(2, 8).padStart(6, '0');
+    const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store reset code in database
+    await pool.request()
+      .input('userId', sql.Int, user.UserID)
+      .input('resetCode', sql.NVarChar(50), resetCode)
+      .input('resetExpiry', sql.DateTime, resetTokenExpiry)
+      .query(`
+        UPDATE UserLogins
+        SET PasswordResetCode = @resetCode,
+            PasswordResetExpiry = @resetExpiry
+        WHERE UserID = @userId
+      `);
+
+    // ========== DEVELOPMENT ONLY - REMOVE IN PRODUCTION ==========
+    // In production, send reset code via email (nodemailer, SendGrid, etc.)
+    // For development, we log it to console and return in response
+    console.log(`🔑 PASSWORD RESET CODE for user ${username}: ${resetCode}`);
+    console.log(`⏱️  Expires in 15 minutes`);
+
+    res.json({ 
+      success: true, 
+      message: 'Password reset code has been generated',
+      resetCode: resetCode, // ⚠️ DEVELOPMENT ONLY - REMOVE IN PRODUCTION
+      email: user.Email
+    });
+    // ========== END DEVELOPMENT ONLY ==========
+
+  } catch (error) {
+    console.error('Request password reset error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Verify and reset password
+const resetPassword = async (req, res) => {
+  const { username, resetCode, newPassword } = req.body;
+  
+  try {
+    if (!username || !resetCode || !newPassword) {
+      return res.status(400).json({ 
+        error: 'Username, reset code, and new password are required' 
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        error: 'Password must be at least 8 characters long' 
+      });
+    }
+
+    const pool = await getPool();
+    
+    // Verify reset code
+    const userResult = await pool.request()
+      .input('username', sql.NVarChar(50), username)
+      .input('resetCode', sql.NVarChar(50), resetCode)
+      .query(`
+        SELECT UserID, PasswordResetExpiry
+        FROM UserLogins
+        WHERE Username = @username 
+          AND PasswordResetCode = @resetCode
+      `);
+    
+    if (userResult.recordset.length === 0) {
+      return res.status(401).json({ error: 'Invalid reset code' });
+    }
+
+    const user = userResult.recordset[0];
+
+    // Check if code has expired
+    if (new Date(user.PasswordResetExpiry) < new Date()) {
+      return res.status(401).json({ error: 'Reset code has expired. Please request a new one.' });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update password and clear reset code
+    await pool.request()
+      .input('userId', sql.Int, user.UserID)
+      .input('passwordHash', sql.VarBinary(256), Buffer.from(newPasswordHash))
+      .query(`
+        UPDATE UserLogins
+        SET PasswordHash = @passwordHash,
+            PasswordResetCode = NULL,
+            PasswordResetExpiry = NULL,
+            LastPasswordChangeDate = GETDATE(),
+            FailedLoginAttempts = 0,
+            AccountLockedUntil = NULL
+        WHERE UserID = @userId
+      `);
+
+    res.json({ 
+      success: true, 
+      message: 'Password has been reset successfully. Please login with your new password.' 
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export {
   login,
   verifyToken,
   changePassword,
-  register
+  register,
+  requestPasswordReset,
+  resetPassword
 };

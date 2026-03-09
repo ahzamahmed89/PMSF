@@ -26,8 +26,16 @@ app.get('/api/health', (req, res) => {
 })
 
 // Import routes
+
 import apiRoutes from './routes/api.js'
+import aiTrainableRoutes from './routes/ai-trainable.js'
+import employeeRoutes from './routes/employees.js'
+import quizAssignmentRoutes from './routes/quiz-assignments.js'
+
 app.use('/api', apiRoutes)
+app.use('/api', aiTrainableRoutes)
+app.use('/api/employees', employeeRoutes)
+app.use('/api/quiz-assignments', quizAssignmentRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -12,7 +12,7 @@ import '../styles/AdminPanel.css';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('users'); // 'users', 'roles', 'permissions', 'logs'
+  const [activeTab, setActiveTab] = useState('users'); // 'users', 'roles', 'permissions', 'logs', 'employees', 'quiz-assignments'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -87,6 +87,18 @@ const AdminPanel = () => {
           onClick={() => setActiveTab('logs')}
         >
           Login Logs
+        </button>
+        <button 
+          className={`tab ${activeTab === 'employees' ? 'active' : ''}`}
+          onClick={() => navigate('/employees')}
+        >
+          Employees
+        </button>
+        <button 
+          className={`tab ${activeTab === 'quiz-assignments' ? 'active' : ''}`}
+          onClick={() => navigate('/quiz-assignments')}
+        >
+          Quiz Assignments
         </button>
       </div>
 

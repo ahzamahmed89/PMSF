@@ -6,6 +6,7 @@ import VisitDate from './VisitDate';
 import VisitOfficerApproval from './VisitOfficerApproval';
 import Button from './Button';
 import ErrorMessage from './ErrorMessage';
+import BannerFlag from './BannerFlag';
 import '../styles/EntryModule.css';
 
 export default function EntryModule() {
@@ -192,12 +193,7 @@ export default function EntryModule() {
 
         <div className="entry-module-header">
           <h1 className="entry-module-title">Entry Module</h1>
-          <div className="waving-banner">
-            <div className="banner-pole"></div>
-            <div className="banner-flag">
-              <span>Service & Quality</span>
-            </div>
-          </div>
+          <BannerFlag text="Service & Quality" />
           <p className="entry-module-subtitle">Visit Entry Form</p>
         </div>
 

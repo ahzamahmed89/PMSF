@@ -926,7 +926,7 @@ export const getVisitData = async (req, res) => {
       .input('Quarter', sql.Int, parseInt(qtr))
       .query(`
         SELECT visitcode, BranchCode, BranchName, Division, Region, Area, 
-               VisitDateTime, VisitBy, ApprovedBy_OM_BM, Score, Month, Quarter, Year
+               VisitDateTime, VisitBy, ApprovedBy_OM_BM, Score, Month, Quarter, Year, ApprovalStatus
         FROM dbo.Visits
         WHERE BranchCode = @BranchCode AND Year = @Year AND Quarter = @Quarter
         ORDER BY VisitDateTime DESC
@@ -1047,6 +1047,72 @@ export const getPreviousQuarterEntry = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Failed to fetch previous quarter entry', 
+      details: error.message 
+    });
+  }
+}
+
+export const approveVisit = async (req, res) => {
+  try {
+    const { visitcode } = req.params;
+    const { username } = req.body;
+
+    if (!visitcode || !username) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'visitcode and username are required' 
+      });
+    }
+
+    const pool = await getPool();
+
+    // First, check if the user is the approver for this visit
+    const visitResult = await pool.request()
+      .input('visitcode', sql.Int, visitcode)
+      .query(`
+        SELECT visitcode, ApprovedBy_OM_BM, ApprovalStatus
+        FROM dbo.Visits
+        WHERE visitcode = @visitcode
+      `);
+
+    if (visitResult.recordset.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Visit not found'
+      });
+    }
+
+    const visit = visitResult.recordset[0];
+
+    // Check if the current user matches the ApprovedBy_OM_BM
+    if (!visit.ApprovedBy_OM_BM || visit.ApprovedBy_OM_BM.trim().toUpperCase() !== username.trim().toUpperCase()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'You are not authorized to approve this visit'
+      });
+    }
+
+    // Update the approval status to 'Done'
+    await pool.request()
+      .input('visitcode', sql.Int, visitcode)
+      .query(`
+        UPDATE dbo.Visits
+        SET ApprovalStatus = 'Done', CreatedOn = GETDATE()
+        WHERE visitcode = @visitcode
+      `);
+
+    res.json({
+      success: true,
+      message: 'Visit approved successfully',
+      visitcode: visitcode,
+      approvalStatus: 'Done'
+    });
+
+  } catch (error) {
+    console.error('Error approving visit:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to approve visit', 
       details: error.message 
     });
   }

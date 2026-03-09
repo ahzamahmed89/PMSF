@@ -1,13 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import '../styles/QuizCreator.css';
 import Button from './Button';
 import { API_URL } from '../config/api';
 
 const QuizCreator = () => {
+  const navigate = useNavigate();
   // View management
   const [viewMode, setViewMode] = useState('create'); // 'create', 'browse', or 'edit'
   const [editingQuizId, setEditingQuizId] = useState(null);
+  const [editTab, setEditTab] = useState('properties'); // 'properties' or 'assignments'
+  const fileInputRef = useRef(null);
+  
+  // Assignment management
+  const [quizAssignments, setQuizAssignments] = useState([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [showAssignmentForm, setShowAssignmentForm] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [eligibleCount, setEligibleCount] = useState(0);
+  const [assignmentForm, setAssignmentForm] = useState({
+    assignment_name: '',
+    filter_department: '',
+    filter_role: '',
+    filter_grade: '',
+    period_type: 'monthly',
+    period_start_date: new Date().toISOString().split('T')[0]
+  });
 
   // Quizzes list
   const [allQuizzes, setAllQuizzes] = useState([]);
@@ -20,7 +41,10 @@ const QuizCreator = () => {
     timeType: 'total',
     totalTime: '',
     timePerQuestion: '',
-    questions: []
+    totalQuestionsToShow: '',
+    questions: [],
+    expiryDate: '',
+    isActive: true
   });
 
   const [currentQuestion, setCurrentQuestion] = useState({
@@ -28,7 +52,8 @@ const QuizCreator = () => {
     numberOfChoices: 4,
     correctAnswer: '',
     wrongAnswers: ['', '', ''],
-    score: ''
+    score: '',
+    timeSeconds: '' // Time for this specific question in seconds
   });
 
   const [savedQuizzes, setSavedQuizzes] = useState([]);
@@ -70,6 +95,9 @@ const QuizCreator = () => {
         timeType: quiz.time_type,
         totalTime: quiz.total_time || '',
         timePerQuestion: quiz.time_per_question || '',
+        totalQuestionsToShow: quiz.total_questions_to_show || '',
+          expiryDate: quiz.expiry_date ? new Date(quiz.expiry_date).toISOString().split('T')[0] : '',
+          isActive: quiz.is_active !== undefined ? quiz.is_active : true,
         questions: quiz.questions.map(q => ({
           id: q.question_id,
           questionText: q.question_text,
@@ -78,14 +106,124 @@ const QuizCreator = () => {
           wrongAnswers: Array.isArray(q.wrongAnswers) 
             ? q.wrongAnswers 
             : (q.wrong_answers ? q.wrong_answers.map(wa => wa.wrong_answer_text) : []),
-          score: q.score
+          score: q.score,
+          timeSeconds: q.time_seconds || ''
         }))
       });
 
       setViewMode('edit');
+      setEditTab('properties');
+      fetchQuizAssignments(quizId);
+      fetchFilterOptions();
     } catch (error) {
       console.error('Error loading quiz:', error);
       alert('Failed to load quiz for editing: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const fetchQuizAssignments = async (quizId) => {
+    try {
+      setLoadingAssignments(true);
+      const response = await axios.get(`http://localhost:5000/api/quiz-assignments?quiz_id=${quizId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.data.success) {
+        setQuizAssignments(response.data.assignments);
+      }
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const fetchFilterOptions = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [deptRes, roleRes, gradeRes] = await Promise.all([
+        fetch('http://localhost:5000/api/employees/departments', { headers }),
+        fetch('http://localhost:5000/api/employees/roles', { headers }),
+        fetch('http://localhost:5000/api/employees/grades', { headers })
+      ]);
+      const [deptData, roleData, gradeData] = await Promise.all([
+        deptRes.json(), roleRes.json(), gradeRes.json()
+      ]);
+      if (deptData.success) setDepartments(deptData.departments);
+      if (roleData.success) setRoles(roleData.roles);
+      if (gradeData.success) setGrades(gradeData.grades);
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  const fetchEligibleCount = async () => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (assignmentForm.filter_department) queryParams.append('department', assignmentForm.filter_department);
+      if (assignmentForm.filter_role) queryParams.append('role', assignmentForm.filter_role);
+      if (assignmentForm.filter_grade) queryParams.append('grade', assignmentForm.filter_grade);
+      const response = await fetch(`http://localhost:5000/api/employees/eligible?${queryParams}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json();
+      if (data.success) setEligibleCount(data.count);
+    } catch (error) {
+      console.error('Error fetching eligible count:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (showAssignmentForm && editingQuizId) {
+      fetchEligibleCount();
+    }
+  }, [assignmentForm.filter_department, assignmentForm.filter_role, assignmentForm.filter_grade, showAssignmentForm]);
+
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (eligibleCount === 0) {
+      alert('No employees match the selected filters!');
+      return;
+    }
+    try {
+      const response = await axios.post('http://localhost:5000/api/quiz-assignments', {
+        quiz_id: editingQuizId,
+        ...assignmentForm
+      }, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.data.success) {
+        alert(`Assignment created for ${response.data.employees_assigned} employees!`);
+        setShowAssignmentForm(false);
+        setAssignmentForm({
+          assignment_name: '',
+          filter_department: '',
+          filter_role: '',
+          filter_grade: '',
+          period_type: 'monthly',
+          period_start_date: new Date().toISOString().split('T')[0]
+        });
+        fetchQuizAssignments(editingQuizId);
+      }
+    } catch (error) {
+      console.error('Error creating assignment:', error);
+      alert('Failed to create assignment');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      const response = await axios.delete(`http://localhost:5000/api/quiz-assignments/${assignmentId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.data.success) {
+        alert('Assignment deleted successfully');
+        fetchQuizAssignments(editingQuizId);
+      }
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      alert(error.response?.data?.message || 'Failed to delete assignment');
     }
   };
 
@@ -149,7 +287,8 @@ const QuizCreator = () => {
       numberOfChoices: currentQuestion.numberOfChoices,
       correctAnswer: currentQuestion.correctAnswer,
       wrongAnswers: currentQuestion.wrongAnswers.filter(ans => ans.trim() !== ''),
-      score: parseFloat(currentQuestion.score)
+      score: parseFloat(currentQuestion.score),
+      timeSeconds: quizData.timeType === 'perQuestion' && currentQuestion.timeSeconds ? parseInt(currentQuestion.timeSeconds) : null
     };
 
     setQuizData({
@@ -178,8 +317,16 @@ const QuizCreator = () => {
       alert('Please enter quiz subject');
       return;
     }
+    if (!quizData.totalQuestionsToShow || parseInt(quizData.totalQuestionsToShow) <= 0) {
+      alert('Please enter the total number of questions to show in quiz');
+      return;
+    }
     if (quizData.questions.length === 0) {
       alert('Please add at least one question');
+      return;
+    }
+    if (quizData.questions.length < parseInt(quizData.totalQuestionsToShow)) {
+      alert(`You must add at least ${quizData.totalQuestionsToShow} questions. Currently added: ${quizData.questions.length}`);
       return;
     }
     if (!quizData.passingMarks || parseFloat(quizData.passingMarks) <= 0) {
@@ -210,6 +357,9 @@ const QuizCreator = () => {
         timeType: quizData.timeType,
         totalTime: quizData.timeType === 'total' ? parseInt(quizData.totalTime) : null,
         timePerQuestion: quizData.timeType === 'perQuestion' ? parseInt(quizData.timePerQuestion) : null,
+        totalQuestionsToShow: parseInt(quizData.totalQuestionsToShow),
+          expiryDate: quizData.expiryDate || null,
+          isActive: quizData.isActive,
         createdBy: username,
         lastEditedBy: username,
         questions: quizData.questions.map(q => ({
@@ -217,7 +367,8 @@ const QuizCreator = () => {
           numberOfChoices: q.numberOfChoices,
           correctAnswer: q.correctAnswer,
           wrongAnswers: q.wrongAnswers,
-          score: q.score
+          score: q.score,
+          timeSeconds: q.timeSeconds || null
         }))
       };
 
@@ -247,13 +398,17 @@ const QuizCreator = () => {
 
   const resetForm = () => {
     setEditingQuizId(null);
+    setEditTab('properties');
     setQuizData({
       subject: '',
       passingMarks: '',
       timeType: 'total',
       totalTime: '',
       timePerQuestion: '',
-      questions: []
+      totalQuestionsToShow: '',
+      questions: [],
+      expiryDate: '',
+      isActive: true
     });
     setCurrentQuestion({
       questionText: '',
@@ -264,6 +419,17 @@ const QuizCreator = () => {
     });
     setCsvFile(null);
     setCsvError('');
+    setQuizAssignments([]);
+    setShowAssignmentForm(false);
+    setAssignmentForm({
+      assignment_name: '',
+      filter_department: '',
+      filter_role: '',
+      filter_grade: '',
+      period_type: 'monthly',
+      period_start_date: new Date().toISOString().split('T')[0]
+    });
+    setEligibleCount(0);
   };
 
   const getTotalScore = () => {
@@ -314,6 +480,11 @@ const QuizCreator = () => {
       throw new Error('CSV file must contain a header row and at least one question');
     }
 
+    // Parse header to detect if Time column exists
+    const headerFields = parseCSVLine(lines[0]);
+    const hasTimeColumn = headerFields.some(h => h.toLowerCase().includes('time'));
+    const timeColumnIndex = hasTimeColumn ? headerFields.findIndex(h => h.toLowerCase().includes('time')) : -1;
+
     const dataLines = lines.slice(1);
     const questions = [];
 
@@ -328,8 +499,20 @@ const QuizCreator = () => {
         const questionText = fields[0].trim();
         const correctAnswer = fields[1].trim();
         const score = parseFloat(fields[2]);
+        
+        // Extract time if present (typically column 3)
+        let timeSeconds = null;
+        let wrongAnswersStartIndex = 3;
+        
+        if (hasTimeColumn && fields.length > 3) {
+          const timeValue = fields[3].trim();
+          if (timeValue && !isNaN(parseInt(timeValue))) {
+            timeSeconds = parseInt(timeValue);
+            wrongAnswersStartIndex = 4; // Wrong answers start after time column
+          }
+        }
 
-        const wrongAnswers = fields.slice(3)
+        const wrongAnswers = fields.slice(wrongAnswersStartIndex)
           .map(ans => ans.trim())
           .filter(ans => ans !== '');
 
@@ -352,7 +535,8 @@ const QuizCreator = () => {
           numberOfChoices: wrongAnswers.length + 1,
           correctAnswer: correctAnswer,
           wrongAnswers: wrongAnswers,
-          score: score
+          score: score,
+          timeSeconds: timeSeconds
         });
       } catch (error) {
         throw new Error(`Error parsing row ${index + 2}: ${error.message}`);
@@ -391,10 +575,26 @@ const QuizCreator = () => {
   };
 
   const downloadCSVTemplate = () => {
-    const template = `Question,Correct Answer,Score,Wrong Answer 1,Wrong Answer 2,Wrong Answer 3,Wrong Answer 4,Wrong Answer 5
-"What is the main feature of our new mobile banking app?","Biometric authentication and instant transfers",25,"Cash withdrawal only","Foreign currency exchange","Loan processing system"
-"Which Islamic banking principle does our product follow?","Sharia-compliant profit sharing",25,"Interest-based lending","Fixed deposit returns","Conventional banking methods"
-"What is the maximum daily transfer limit for individual accounts?","PKR 500,000",25,"PKR 100,000","PKR 1,000,000","No limit"`;
+    // Generate template with Time column if time type is perQuestion
+    const includeTime = quizData.timeType === 'perQuestion';
+    
+    const headers = includeTime 
+      ? `Question,Correct Answer,Score,Time (seconds),Wrong Answer 1,Wrong Answer 2,Wrong Answer 3,Wrong Answer 4,Wrong Answer 5`
+      : `Question,Correct Answer,Score,Wrong Answer 1,Wrong Answer 2,Wrong Answer 3,Wrong Answer 4,Wrong Answer 5`;
+    
+    const row1 = includeTime
+      ? `"What is the main feature of our new mobile banking app?","Biometric authentication and instant transfers",25,30,"Cash withdrawal only","Foreign currency exchange","Loan processing system"`
+      : `"What is the main feature of our new mobile banking app?","Biometric authentication and instant transfers",25,"Cash withdrawal only","Foreign currency exchange","Loan processing system"`;
+    
+    const row2 = includeTime
+      ? `"Which Islamic banking principle does our product follow?","Sharia-compliant profit sharing",25,45,"Interest-based lending","Fixed deposit returns","Conventional banking methods"`
+      : `"Which Islamic banking principle does our product follow?","Sharia-compliant profit sharing",25,"Interest-based lending","Fixed deposit returns","Conventional banking methods"`;
+    
+    const row3 = includeTime
+      ? `"What is the maximum daily transfer limit for individual accounts?","PKR 500,000",25,30,"PKR 100,000","PKR 1,000,000","No limit"`
+      : `"What is the maximum daily transfer limit for individual accounts?","PKR 500,000",25,"PKR 100,000","PKR 1,000,000","No limit"`;
+    
+    const template = `${headers}\n${row1}\n${row2}\n${row3}`;
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -414,11 +614,20 @@ const QuizCreator = () => {
     });
     setCsvFile(null);
     setCsvError('');
+    // Reset file input to allow re-uploading
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  };
+  
+  const handleAssignQuiz = (quiz) => {
+    // Navigate to quiz assignment page with pre-selected quiz
+    navigate('/quiz-assignments', { state: { selectedQuiz: quiz } });
   };
 
   return (
@@ -475,11 +684,22 @@ const QuizCreator = () => {
                 <div key={quiz.quiz_id} className="quiz-card">
                   <div className="quiz-card-header">
                     <h3>{quiz.subject}</h3>
-                    <span className="question-count">{quiz.question_count} Questions</span>
+                    <div className="quiz-card-badges">
+                      <span className="question-count">{quiz.question_count} Questions</span>
+                      <span className={`status-badge ${quiz.is_active ? 'badge-active' : 'badge-inactive'}`}>
+                        {quiz.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </div>
                   <div className="quiz-card-details">
                     <p><strong>Passing Marks:</strong> {quiz.passing_marks}/{quiz.total_score}</p>
                     <p><strong>Time:</strong> {quiz.time_type === 'total' ? `${quiz.total_time} min` : `${quiz.time_per_question} sec per Q`}</p>
+                                        {quiz.expiry_date && (
+                                          <p>
+                                            <strong>Expires:</strong> {new Date(quiz.expiry_date).toLocaleDateString()}
+                                            {new Date(quiz.expiry_date) < new Date() && <span className="expired-label"> (Expired)</span>}
+                                          </p>
+                                        )}
                     <p><strong>Created:</strong> {formatDate(quiz.created_at)}</p>
                     <p><strong>Last Updated:</strong> {formatDate(quiz.updated_at)}</p>
                     {quiz.created_by && <p><strong>Created By:</strong> {quiz.created_by}</p>}
@@ -490,6 +710,12 @@ const QuizCreator = () => {
                       className="edit-btn"
                     >
                       Edit
+                    </Button>
+                    <Button
+                      onClick={() => handleAssignQuiz(quiz)}
+                      className="assign-btn"
+                    >
+                      Assign
                     </Button>
                   </div>
                 </div>
@@ -502,6 +728,27 @@ const QuizCreator = () => {
       {/* Create/Edit Mode */}
       {(viewMode === 'create' || viewMode === 'edit') && (
         <div className="quiz-creator-content">
+          {/* Tab Navigation for Edit Mode */}
+          {editingQuizId && (
+            <div className="edit-tabs">
+              <button
+                className={`tab-button ${editTab === 'properties' ? 'active' : ''}`}
+                onClick={() => setEditTab('properties')}
+              >
+                Properties
+              </button>
+              <button
+                className={`tab-button ${editTab === 'assignments' ? 'active' : ''}`}
+                onClick={() => setEditTab('assignments')}
+              >
+                Assignments
+              </button>
+            </div>
+          )}
+
+          {/* Properties Tab Content */}
+          {(!editingQuizId || editTab === 'properties') && (
+            <>
           {/* Quiz Settings Section */}
           <div className="quiz-settings-section">
             <h2>{editingQuizId ? 'Edit Quiz Settings' : 'Quiz Settings'}</h2>
@@ -515,6 +762,35 @@ const QuizCreator = () => {
                 onChange={(e) => handleQuizDataChange('subject', e.target.value)}
                 className="quiz-input"
               />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Expiry Date (optional)</label>
+                <input
+                  type="date"
+                  value={quizData.expiryDate}
+                  onChange={(e) => handleQuizDataChange('expiryDate', e.target.value)}
+                  className="quiz-input"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <span className="helper-text">Quiz will automatically become inactive after this date</span>
+              </div>
+
+              <div className="form-group">
+                <label className={quizData.isActive ? 'status-label-active' : 'status-label-inactive'}>Quiz Status</label>
+                <select
+                  value={quizData.isActive ? 'active' : 'inactive'}
+                  onChange={(e) => handleQuizDataChange('isActive', e.target.value === 'active')}
+                  className={`quiz-select status-select ${quizData.isActive ? 'status-select-active' : 'status-select-inactive'}`}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+                <span className={`helper-text ${quizData.isActive ? 'status-helper-active' : 'status-helper-inactive'}`}>
+                  Inactive quizzes won't be available for assignment or attempts
+                </span>
+              </div>
             </div>
 
             <div className="form-group">
@@ -556,31 +832,52 @@ const QuizCreator = () => {
               </div>
             </div>
 
-            {quizData.timeType === 'total' ? (
+            <div className="form-row">
+              {quizData.timeType === 'total' ? (
+                <div className="form-group">
+                  <label>Total Time (minutes) *</label>
+                  <input
+                    type="number"
+                    placeholder="Total time for entire quiz"
+                    value={quizData.totalTime}
+                    onChange={(e) => handleQuizDataChange('totalTime', e.target.value)}
+                    className="quiz-input"
+                    min="1"
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>Time per Question (seconds) *</label>
+                  <input
+                    type="number"
+                    placeholder="Time allowed per question"
+                    value={quizData.timePerQuestion}
+                    onChange={(e) => handleQuizDataChange('timePerQuestion', e.target.value)}
+                    className="quiz-input"
+                    min="1"
+                  />
+                </div>
+              )}
+
               <div className="form-group">
-                <label>Total Time (minutes) *</label>
+                <label>Total Questions to Show in Quiz *</label>
                 <input
                   type="number"
-                  placeholder="Total time for entire quiz"
-                  value={quizData.totalTime}
-                  onChange={(e) => handleQuizDataChange('totalTime', e.target.value)}
+                  placeholder="e.g., 10 (system will show 10 random questions from all questions added)"
+                  value={quizData.totalQuestionsToShow}
+                  onChange={(e) => handleQuizDataChange('totalQuestionsToShow', e.target.value)}
                   className="quiz-input"
                   min="1"
                 />
+                {quizData.totalQuestionsToShow && quizData.questions.length > 0 && (
+                  <span className={`helper-text ${quizData.questions.length < parseInt(quizData.totalQuestionsToShow) ? 'error' : 'success'}`}>
+                    {quizData.questions.length >= parseInt(quizData.totalQuestionsToShow)
+                      ? `✓ You have ${quizData.questions.length} questions (need ${quizData.totalQuestionsToShow})`
+                      : `✗ You have ${quizData.questions.length} questions (need ${quizData.totalQuestionsToShow})`}
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="form-group">
-                <label>Time per Question (seconds) *</label>
-                <input
-                  type="number"
-                  placeholder="Time allowed per question"
-                  value={quizData.timePerQuestion}
-                  onChange={(e) => handleQuizDataChange('timePerQuestion', e.target.value)}
-                  className="quiz-input"
-                  min="1"
-                />
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Question Builder Section */}
@@ -618,7 +915,10 @@ const QuizCreator = () => {
                     <li>Column 1: Question text</li>
                     <li>Column 2: Correct answer</li>
                     <li>Column 3: Score (numeric)</li>
-                    <li>Column 4+: Wrong answers (at least 1 required, up to 5 supported)</li>
+                    {quizData.timeType === 'perQuestion' && (
+                      <li>Column 4: Time (seconds) - Optional, leave blank to use default</li>
+                    )}
+                    <li>Column {quizData.timeType === 'perQuestion' ? '5' : '4'}+: Wrong answers (at least 1 required, up to 5 supported)</li>
                   </ul>
                   <p>First row should be headers. Use quotes for fields containing commas.</p>
                   <Button onClick={downloadCSVTemplate} className="download-template-btn">
@@ -629,6 +929,7 @@ const QuizCreator = () => {
                 <div className="form-group">
                   <label>Upload CSV File</label>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".csv"
                     onChange={handleCsvUpload}
@@ -714,6 +1015,23 @@ const QuizCreator = () => {
                   />
                 </div>
 
+                {quizData.timeType === 'perQuestion' && (
+                  <div className="form-group">
+                    <label>Time for this Question (seconds)</label>
+                    <input
+                      type="number"
+                      placeholder="Time allowed for this question"
+                      value={currentQuestion.timeSeconds}
+                      onChange={(e) => handleQuestionChange('timeSeconds', e.target.value)}
+                      className="quiz-input"
+                      min="1"
+                    />
+                    <span className="helper-text">
+                      Leave blank to use default time ({quizData.timePerQuestion || '30'} seconds)
+                    </span>
+                  </div>
+                )}
+
                 <Button onClick={addQuestion}>
                   Add Question to Quiz
                 </Button>
@@ -731,6 +1049,9 @@ const QuizCreator = () => {
                     <div className="question-header">
                       <span className="question-number">Q{index + 1}</span>
                       <span className="question-score">{question.score} pts</span>
+                      {quizData.timeType === 'perQuestion' && question.timeSeconds && (
+                        <span className="question-time">⏱ {question.timeSeconds}s</span>
+                      )}
                       <button
                         className="remove-btn"
                         onClick={() => removeQuestion(question.id)}
@@ -772,6 +1093,155 @@ const QuizCreator = () => {
                   Cancel
                 </Button>
               )}
+            </div>
+          )}
+            </>
+          )}
+
+          {/* Assignments Tab Content */}
+          {editingQuizId && editTab === 'assignments' && (
+            <div className="assignments-tab-content">
+              <div className="assignments-header">
+                <h2>Quiz Assignments</h2>
+                <Button onClick={() => setShowAssignmentForm(!showAssignmentForm)}>
+                  {showAssignmentForm ? 'Cancel' : 'Create New Assignment'}
+                </Button>
+              </div>
+
+              {/* Assignment Form */}
+              {showAssignmentForm && (
+                <div className="assignment-form-section">
+                  <h3>Create Assignment</h3>
+                  <form onSubmit={handleCreateAssignment}>
+                    <div className="form-group">
+                      <label>Assignment Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Q1 2024 Product Quiz"
+                        value={assignmentForm.assignment_name}
+                        onChange={(e) => setAssignmentForm({...assignmentForm, assignment_name: e.target.value})}
+                        className="quiz-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Filter by Department</label>
+                        <select
+                          value={assignmentForm.filter_department}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_department: e.target.value})}
+                          className="quiz-select"
+                        >
+                          <option value="">All Departments</option>
+                          {departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Filter by Role</label>
+                        <select
+                          value={assignmentForm.filter_role}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_role: e.target.value})}
+                          className="quiz-select"
+                        >
+                          <option value="">All Roles</option>
+                          {roles.map(role => (
+                            <option key={role} value={role}>{role}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Filter by Grade</label>
+                        <select
+                          value={assignmentForm.filter_grade}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_grade: e.target.value})}
+                          className="quiz-select"
+                        >
+                          <option value="">All Grades</option>
+                          {grades.map(grade => (
+                            <option key={grade} value={grade}>{grade}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Period Type *</label>
+                        <select
+                          value={assignmentForm.period_type}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, period_type: e.target.value})}
+                          className="quiz-select"
+                          required
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="yearly">Yearly</option>
+                          <option value="one-time">One-Time</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Period Start Date *</label>
+                        <input
+                          type="date"
+                          value={assignmentForm.period_start_date}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, period_start_date: e.target.value})}
+                          className="quiz-input"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="eligible-count-display">
+                      <strong>Eligible Employees:</strong> {eligibleCount}
+                    </div>
+
+                    <Button type="submit" className="save-quiz-btn">
+                      Create Assignment
+                    </Button>
+                  </form>
+                </div>
+              )}
+
+              {/* Assignments List */}
+              <div className="assignments-list-section">
+                <h3>Existing Assignments</h3>
+                {loadingAssignments ? (
+                  <p>Loading assignments...</p>
+                ) : quizAssignments.length === 0 ? (
+                  <p className="no-data">No assignments for this quiz yet.</p>
+                ) : (
+                  <div className="assignments-grid">
+                    {quizAssignments.map(assignment => (
+                      <div key={assignment.assignment_id} className="assignment-card">
+                        <div className="assignment-header">
+                          <h4>{assignment.assignment_name}</h4>
+                          <button
+                            className="delete-assignment-btn"
+                            onClick={() => handleDeleteAssignment(assignment.assignment_id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <div className="assignment-details">
+                          <p><strong>Period:</strong> {assignment.period_type}</p>
+                          <p><strong>Start Date:</strong> {new Date(assignment.period_start_date).toLocaleDateString()}</p>
+                          {assignment.filter_department && <p><strong>Department:</strong> {assignment.filter_department}</p>}
+                          {assignment.filter_role && <p><strong>Role:</strong> {assignment.filter_role}</p>}
+                          {assignment.filter_grade && <p><strong>Grade:</strong> {assignment.filter_grade}</p>}
+                          <p><strong>Employees:</strong> {assignment.employee_count || 'N/A'}</p>
+                          <p className="assignment-date">Created: {new Date(assignment.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

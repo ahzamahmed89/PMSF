@@ -1,0 +1,134 @@
+/* Waving Banner Container */
+.waving-banner {
+  position: relative;
+  margin: 20px 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.banner-pole {
+  width: 3px;
+  height: 45px;
+  background: linear-gradient(180deg, #8B4513 0%, #654321 100%);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner-flag {
+  position: relative;
+  background: linear-gradient(135deg, #1e7e34 0%, #0d5a2e 100%);
+  color: white;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 0 4px 4px 0;
+  margin-left: -2px;
+  min-width: 160px;
+  text-align: center;
+  animation: wave 3s ease-in-out infinite;
+  transform-origin: left center;
+  border: 2px solid #fff;
+  border-left: none;
+}
+
+.banner-flag span {
+  display: block;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 2;
+}
+
+.banner-flag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.2) 0%, 
+    transparent 50%, 
+    rgba(0, 0, 0, 0.1) 100%);
+  border-radius: 0 4px 4px 0;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  25% {
+    transform: perspective(400px) rotateY(15deg) translateY(-2px);
+  }
+  50% {
+    transform: perspective(400px) rotateY(0deg) translateY(0);
+  }
+  75% {
+    transform: perspective(400px) rotateY(-15deg) translateY(2px);
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .waving-banner {
+    height: 50px;
+    margin: 15px auto;
+    justify-content: center;
+  }
+
+  .banner-pole {
+    height: 38px;
+  }
+
+  .banner-flag {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-width: 140px;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .banner-flag span {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .waving-banner {
+    height: 40px;
+    margin: 10px auto;
+    justify-content: center;
+  }
+
+  .banner-pole {
+    width: 2px;
+    height: 32px;
+  }
+
+  .banner-flag {
+    padding: 4px 10px;
+    font-size: 10px;
+    min-width: 120px;
+    border-radius: 0 2px 2px 0;
+    border: 1px solid #fff;
+    border-left: none;
+  }
+
+  .banner-flag span {
+    font-size: 9px;
+  }
+}

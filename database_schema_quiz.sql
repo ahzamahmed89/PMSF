@@ -14,6 +14,7 @@ CREATE TABLE quizzes (
     time_type NVARCHAR(20) NOT NULL DEFAULT 'total' CHECK (time_type IN ('total', 'perQuestion')),
     total_time INT NULL, -- Total time in minutes (if time_type = total)
     time_per_question INT NULL, -- Time per question in seconds (if time_type = perQuestion)
+    total_questions_to_show INT NULL, -- Total number of questions to show on each quiz attempt (randomly selected)
     created_by NVARCHAR(100) NULL, -- Admin username who created the quiz
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),

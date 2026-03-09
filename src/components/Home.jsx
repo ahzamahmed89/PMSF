@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Button from './Button';
+import Modal from './Modal';
+import IconPicker from './IconPicker';
 import { API_URL } from '../config/api';
 import '../styles/Home.css';
 
@@ -15,12 +17,167 @@ const Home = ({ onLogout, username }) => {
     branchMystery: false,
     productKnowledge: false
   });
+  const [marqueeItems, setMarqueeItems] = useState([]);
+  const [showMarqueeEditor, setShowMarqueeEditor] = useState(false);
+  const [newMarqueeText, setNewMarqueeText] = useState('');
+  const [newMarqueeIcon, setNewMarqueeIcon] = useState('');
+  const [showIconPickerNew, setShowIconPickerNew] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editingText, setEditingText] = useState('');
+  const [editingIcon, setEditingIcon] = useState('');
+  const [showIconPickerEdit, setShowIconPickerEdit] = useState(false);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  // Fetch marquee items from database
+  const fetchMarqueeItems = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/marquee-items`);
+      if (response.data.success) {
+        setMarqueeItems(response.data.items);
+      } else {
+        // Try as array response if success field missing
+        setMarqueeItems(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching marquee items:', error);
+    }
+  };
+
+  const handleEditMarquee = () => {
+    setShowMarqueeEditor(true);
+  };
+
+  const handleAddMarqueeItem = async () => {
+    if (!newMarqueeText.trim()) {
+      alert('Please enter text content');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.post(
+        `${API_URL}/marquee-items`,
+        {
+          text_content: newMarqueeText,
+          icon: newMarqueeIcon
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        await fetchMarqueeItems();
+        setNewMarqueeText('');
+        setNewMarqueeIcon('');
+      }
+    } catch (error) {
+      console.error('Error adding marquee item:', error);
+      alert('Failed to add marquee item');
+    }
+  };
+
+  const handleUpdateMarqueeItem = async (id) => {
+    if (!editingText.trim()) {
+      alert('Please enter text content');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.put(
+        `${API_URL}/marquee-items/${id}`,
+        {
+          text_content: editingText,
+          icon: editingIcon
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        await fetchMarqueeItems();
+        setEditingItemId(null);
+        setEditingText('');
+        setEditingIcon('');
+      }
+    } catch (error) {
+      console.error('Error updating marquee item:', error);
+      alert('Failed to update marquee item');
+    }
+  };
+
+  const handleDeleteMarqueeItem = async (id) => {
+    if (!confirm('Are you sure you want to delete this item?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.delete(
+        `${API_URL}/marquee-items/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        await fetchMarqueeItems();
+      }
+    } catch (error) {
+      console.error('Error deleting marquee item:', error);
+      alert('Failed to delete marquee item');
+    }
+  };
+
+  const handleToggleMarqueeItem = async (id) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await axios.patch(
+        `${API_URL}/marquee-items/${id}/toggle`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        await fetchMarqueeItems();
+      }
+    } catch (error) {
+      console.error('Error toggling marquee item:', error);
+      alert('Failed to toggle marquee item');
+    }
+  };
+
+  const startEditItem = (item) => {
+    setEditingItemId(item.id);
+    setEditingText(item.text_content);
+    setEditingIcon(item.icon || '');
+  };
+
+  const cancelEditItem = () => {
+    setEditingItemId(null);
+    setEditingText('');
+    setEditingIcon('');
+  };
+
+  const handleCloseMarqueeEditor = () => {
+    setShowMarqueeEditor(false);
+    setNewMarqueeText('');
+    setNewMarqueeIcon('');
+    setShowIconPickerNew(false);
+    setEditingItemId(null);
+    setEditingText('');
+    setEditingIcon('');
+    setShowIconPickerEdit(false);
   };
 
   // Image carousel
@@ -36,6 +193,11 @@ const Home = ({ onLogout, username }) => {
       setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
     }, 4000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch marquee items on mount
+  useEffect(() => {
+    fetchMarqueeItems();
   }, []);
 
   const handleLogout = () => {
@@ -137,6 +299,26 @@ const Home = ({ onLogout, username }) => {
         </div>
       </div>
 
+      {/* Latest Updates Marquee */}
+      <div className="marquee-wrapper">
+        <div className="marquee-content">
+          <span className="marquee-heading">Latest Updates:</span>
+          <span className="marquee-text">
+            {marqueeItems.map((item, index) => (
+              <span key={item.id}>
+                {item.icon && `${item.icon} `}{item.text_content}
+                {index < marqueeItems.length - 1 && ' • '}
+              </span>
+            ))}
+          </span>
+        </div>
+        {hasPermission('MARQUEE_EDIT') && (
+          <button className="marquee-edit-btn" onClick={handleEditMarquee} title="Edit Marquee">
+            ✏️
+          </button>
+        )}
+      </div>
+
       {/* Dropdown Menu */}
       {showMenu && (
         <div className="dropdown-menu"
@@ -195,6 +377,16 @@ const Home = ({ onLogout, username }) => {
                         📖 Take Quiz
                       </Link>
                     )}
+                    {(isAdmin || hasPermission('QUIZ_CREATE')) && (
+                      <>
+                        <Link to="/employees" className="nav-link" onClick={() => setShowMenu(false)}>
+                          👥 Manage Employees
+                        </Link>
+                        <Link to="/quiz-assignments" className="nav-link" onClick={() => setShowMenu(false)}>
+                          📋 Assign Quizzes
+                        </Link>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -211,6 +403,129 @@ const Home = ({ onLogout, username }) => {
           </div>
         </div>
       )}
+
+      {/* Marquee Editor Modal */}
+      <Modal
+        isOpen={showMarqueeEditor}
+        onClose={handleCloseMarqueeEditor}
+        title="Manage Latest Updates"
+        size="large"
+      >
+        <div className="marquee-editor">
+          {/* Add New Item Section */}
+          <div className="marquee-add-section">
+            <h3>Add New Update</h3>
+            <div className="marquee-input-row">
+              <div className="icon-input-wrapper">
+                <button 
+                  className="icon-input-btn"
+                  onClick={() => setShowIconPickerNew(!showIconPickerNew)}
+                  title="Select icon"
+                >
+                  {newMarqueeIcon || '🔷'}
+                </button>
+                {showIconPickerNew && (
+                  <IconPicker 
+                    value={newMarqueeIcon}
+                    onChange={setNewMarqueeIcon}
+                    onClose={() => setShowIconPickerNew(false)}
+                  />
+                )}
+              </div>
+              <input
+                type="text"
+                className="marquee-text-input"
+                value={newMarqueeText}
+                onChange={(e) => setNewMarqueeText(e.target.value)}
+                placeholder="Enter update text..."
+                maxLength="500"
+              />
+              <Button onClick={handleAddMarqueeItem} variant="primary">
+                Add
+              </Button>
+            </div>
+          </div>
+
+          {/* Existing Items List */}
+          <div className="marquee-items-list">
+            <h3>Current Updates ({marqueeItems.length})</h3>
+            {marqueeItems.length === 0 ? (
+              <p className="no-items-message">No updates yet. Add your first update above!</p>
+            ) : (
+              <div className="marquee-items">
+                {marqueeItems.map((item) => (
+                  <div key={item.id} className="marquee-item">
+                    {editingItemId === item.id ? (
+                      <div className="marquee-item-edit">
+                        <div className="icon-input-wrapper">
+                          <button 
+                            className="icon-input-btn"
+                            onClick={() => setShowIconPickerEdit(!showIconPickerEdit)}
+                            title="Select icon"
+                          >
+                            {editingIcon || '🔷'}
+                          </button>
+                          {showIconPickerEdit && (
+                            <IconPicker 
+                              value={editingIcon}
+                              onChange={setEditingIcon}
+                              onClose={() => setShowIconPickerEdit(false)}
+                            />
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          className="marquee-text-input"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          placeholder="Text"
+                          maxLength="500"
+                        />
+                        <div className="marquee-item-actions">
+                          <Button onClick={() => handleUpdateMarqueeItem(item.id)} variant="primary" size="small">
+                            Save
+                          </Button>
+                          <Button onClick={cancelEditItem} variant="outline" size="small">
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="marquee-item-view">
+                        <span className="marquee-item-content">
+                          {item.icon && <span className="marquee-item-icon">{item.icon}</span>}
+                          <span className="marquee-item-text">{item.text_content}</span>
+                        </span>
+                        <div className="marquee-item-actions">
+                          <button 
+                            onClick={() => handleToggleMarqueeItem(item.id)} 
+                            className="marquee-action-btn toggle-btn" 
+                            title={item.is_enabled ? "Disable" : "Enable"}
+                          >
+                            {item.is_enabled ? '✓' : '○'}
+                          </button>
+                          <button onClick={() => startEditItem(item)} className="marquee-action-btn edit-btn" title="Edit">
+                            ✏️
+                          </button>
+                          <button onClick={() => handleDeleteMarqueeItem(item.id)} className="marquee-action-btn delete-btn" title="Delete">
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="marquee-editor-footer">
+            <Button onClick={handleCloseMarqueeEditor} variant="primary">
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
