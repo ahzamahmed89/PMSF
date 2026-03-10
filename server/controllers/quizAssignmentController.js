@@ -25,14 +25,14 @@ export const getAllAssignments = async (req, res) => {
                 qa.period_end_date,
                 qa.is_active,
                 qa.assigned_at,
-                q.title as quiz_title,
-                u.username as assigned_by_username,
+                q.subject as quiz_title,
+                u.Username as assigned_by_username,
                 (SELECT COUNT(*) FROM employee_quiz_attempts WHERE assignment_id = qa.id) as total_employees,
                 (SELECT COUNT(*) FROM employee_quiz_attempts WHERE assignment_id = qa.id AND status = 'completed') as completed_count,
                 (SELECT COUNT(*) FROM employee_quiz_attempts WHERE assignment_id = qa.id AND status = 'not_started') as pending_count
             FROM quiz_assignments qa
-            LEFT JOIN quizzes q ON qa.quiz_id = q.id
-            LEFT JOIN users u ON qa.assigned_by = u.id
+            LEFT JOIN quizzes q ON qa.quiz_id = q.quiz_id
+            LEFT JOIN UserLogins u ON qa.assigned_by = u.UserID
             WHERE 1=1
         `;
         
@@ -85,12 +85,12 @@ export const getAssignmentById = async (req, res) => {
             .query(`
                 SELECT 
                     qa.*,
-                    q.title as quiz_title,
-                    q.description as quiz_description,
-                    u.username as assigned_by_username
+                    q.subject as quiz_title,
+                    CAST(NULL AS NVARCHAR(500)) as quiz_description,
+                    u.Username as assigned_by_username
                 FROM quiz_assignments qa
-                LEFT JOIN quizzes q ON qa.quiz_id = q.id
-                LEFT JOIN users u ON qa.assigned_by = u.id
+                LEFT JOIN quizzes q ON qa.quiz_id = q.quiz_id
+                LEFT JOIN UserLogins u ON qa.assigned_by = u.UserID
                 WHERE qa.id = @id
             `);
         
@@ -178,7 +178,7 @@ export const createAssignment = async (req, res) => {
         // Check if quiz exists
         const quizCheck = await pool.request()
             .input('quiz_id', sql.Int, quiz_id)
-            .query('SELECT id FROM quizzes WHERE id = @quiz_id');
+            .query('SELECT quiz_id FROM quizzes WHERE quiz_id = @quiz_id');
         
         if (quizCheck.recordset.length === 0) {
             return res.status(404).json({
@@ -186,22 +186,141 @@ export const createAssignment = async (req, res) => {
                 message: 'Quiz not found'
             });
         }
-        
-        // Use stored procedure to create assignment and employee attempts
-        const result = await pool.request()
-            .input('quiz_id', sql.Int, quiz_id)
-            .input('assignment_name', sql.NVarChar, assignment_name)
-            .input('filter_department', sql.NVarChar, filter_department || null)
-            .input('filter_role', sql.NVarChar, filter_role || null)
-            .input('filter_grade', sql.VarChar, filter_grade || null)
-            .input('period_type', sql.VarChar, period_type)
-            .input('period_start_date', sql.Date, period_start_date)
-            .input('assigned_by', sql.Int, userId)
-            .output('assignment_id', sql.Int)
-            .execute('sp_CreateQuizAssignment');
-        
-        const assignmentId = result.output.assignment_id;
-        const employeesAssigned = result.recordset[0]?.employees_assigned || 0;
+
+        const departments = Array.isArray(filter_department)
+            ? filter_department.filter(Boolean)
+            : (filter_department ? [filter_department] : []);
+        const roles = Array.isArray(filter_role)
+            ? filter_role.filter(Boolean)
+            : (filter_role ? [filter_role] : []);
+        const grades = Array.isArray(filter_grade)
+            ? filter_grade.filter(Boolean)
+            : (filter_grade ? [filter_grade] : []);
+
+        const hasMultiFilters = departments.length > 1 || roles.length > 1 || grades.length > 1;
+
+        let assignmentId;
+        let employeesAssigned;
+
+        if (!hasMultiFilters) {
+            const result = await pool.request()
+                .input('quiz_id', sql.Int, quiz_id)
+                .input('assignment_name', sql.NVarChar, assignment_name)
+                .input('filter_department', sql.NVarChar, departments[0] || null)
+                .input('filter_role', sql.NVarChar, roles[0] || null)
+                .input('filter_grade', sql.VarChar, grades[0] || null)
+                .input('period_type', sql.VarChar, period_type)
+                .input('period_start_date', sql.Date, period_start_date)
+                .input('assigned_by', sql.Int, userId)
+                .output('assignment_id', sql.Int)
+                .execute('sp_CreateQuizAssignment');
+
+            assignmentId = result.output.assignment_id;
+            employeesAssigned = result.recordset[0]?.employees_assigned || 0;
+        } else {
+            const getPeriodIdentifier = (type, startDate) => {
+                const date = new Date(startDate);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+
+                if (type === 'yearly') return `${year}`;
+                if (type === 'half-yearly') return `${year}-H${month <= 6 ? 1 : 2}`;
+                if (type === 'quarterly') return `${year}-Q${Math.ceil(month / 3)}`;
+                if (type === 'monthly') return `${year}-${String(month).padStart(2, '0')}`;
+                return 'once';
+            };
+
+            const transaction = new sql.Transaction(pool);
+            await transaction.begin();
+
+            try {
+                const filterDepartmentText = departments.length > 0 ? departments.join(', ') : null;
+                const filterRoleText = roles.length > 0 ? roles.join(', ') : null;
+                const filterGradeText = grades.length > 0 ? grades.join(', ') : null;
+
+                const assignmentInsert = await transaction.request()
+                    .input('quiz_id', sql.Int, quiz_id)
+                    .input('assignment_name', sql.NVarChar, assignment_name)
+                    .input('filter_department', sql.NVarChar, filterDepartmentText)
+                    .input('filter_role', sql.NVarChar, filterRoleText)
+                    .input('filter_grade', sql.VarChar, filterGradeText)
+                    .input('period_type', sql.VarChar, period_type)
+                    .input('period_start_date', sql.Date, period_start_date)
+                    .input('assigned_by', sql.Int, userId)
+                    .query(`
+                        INSERT INTO quiz_assignments (
+                            quiz_id, assignment_name,
+                            filter_department, filter_role, filter_grade,
+                            period_type, period_start_date, assigned_by
+                        )
+                        OUTPUT INSERTED.id
+                        VALUES (
+                            @quiz_id, @assignment_name,
+                            @filter_department, @filter_role, @filter_grade,
+                            @period_type, @period_start_date, @assigned_by
+                        )
+                    `);
+
+                assignmentId = assignmentInsert.recordset[0].id;
+                const periodIdentifier = getPeriodIdentifier(period_type, period_start_date);
+
+                let attemptQuery = `
+                    INSERT INTO employee_quiz_attempts (
+                        assignment_id, employee_id, quiz_id,
+                        period_identifier, status
+                    )
+                    SELECT @assignment_id, e.id, @quiz_id, @period_identifier, 'not_started'
+                    FROM employees e
+                    WHERE e.is_active = 1
+                `;
+
+                const queryConditions = [];
+                const attemptRequest = transaction.request()
+                    .input('assignment_id', sql.Int, assignmentId)
+                    .input('quiz_id', sql.Int, quiz_id)
+                    .input('period_identifier', sql.VarChar, periodIdentifier);
+
+                if (departments.length > 0) {
+                    const deptParams = departments.map((_, i) => `@dept${i}`).join(',');
+                    queryConditions.push(`e.functional_department IN (${deptParams})`);
+                    departments.forEach((department, i) => {
+                        attemptRequest.input(`dept${i}`, sql.NVarChar, department);
+                    });
+                }
+
+                if (roles.length > 0) {
+                    const roleParams = roles.map((_, i) => `@role${i}`).join(',');
+                    queryConditions.push(`e.functional_role IN (${roleParams})`);
+                    roles.forEach((roleValue, i) => {
+                        attemptRequest.input(`role${i}`, sql.NVarChar, roleValue);
+                    });
+                }
+
+                if (grades.length > 0) {
+                    const gradeParams = grades.map((_, i) => `@grade${i}`).join(',');
+                    queryConditions.push(`e.grade IN (${gradeParams})`);
+                    grades.forEach((gradeValue, i) => {
+                        attemptRequest.input(`grade${i}`, sql.VarChar, gradeValue);
+                    });
+                }
+
+                if (queryConditions.length > 0) {
+                    attemptQuery += ` AND ${queryConditions.join(' AND ')}`;
+                }
+
+                await attemptRequest.query(attemptQuery);
+
+                const countResult = await transaction.request()
+                    .input('assignment_id', sql.Int, assignmentId)
+                    .query(`SELECT COUNT(*) as employees_assigned FROM employee_quiz_attempts WHERE assignment_id = @assignment_id`);
+
+                employeesAssigned = countResult.recordset[0]?.employees_assigned || 0;
+                await transaction.commit();
+            } catch (transactionError) {
+                await transaction.rollback();
+                throw transactionError;
+            }
+        }
         
         res.status(201).json({
             success: true,
@@ -480,9 +599,9 @@ export const getMyAssignedQuizzes = async (req, res) => {
                     eqa.expires_at,
                     eqa.period_identifier,
                     eqa.attempt_number,
-                    q.id as quiz_id,
-                    q.title as quiz_title,
-                    q.description as quiz_description,
+                    q.quiz_id as quiz_id,
+                    q.subject as quiz_title,
+                    CAST(NULL AS NVARCHAR(500)) as quiz_description,
                     qa.assignment_name,
                     qa.period_type,
                     CASE 
@@ -493,7 +612,7 @@ export const getMyAssignedQuizzes = async (req, res) => {
                     END AS display_status
                 FROM employee_quiz_attempts eqa
                 INNER JOIN quiz_assignments qa ON eqa.assignment_id = qa.id
-                INNER JOIN quizzes q ON eqa.quiz_id = q.id
+                INNER JOIN quizzes q ON eqa.quiz_id = q.quiz_id
                 WHERE eqa.employee_id = @emp_id
                     AND qa.is_active = 1
                 ORDER BY 

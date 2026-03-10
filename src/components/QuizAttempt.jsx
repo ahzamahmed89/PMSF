@@ -21,11 +21,37 @@ const QuizAttempt = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [startTime, setStartTime] = useState(null);
+  const [attemptProgress, setAttemptProgress] = useState({});
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/home');
+    }
+  };
 
   // Load quizzes from API
   useEffect(() => {
+    const username = localStorage.getItem('username') || 'guest';
     fetchQuizzes();
+    fetchAttemptProgress(username);
   }, []);
+
+  const fetchAttemptProgress = async (userId) => {
+    try {
+      const response = await axios.get(`${API_URL}/quiz-attempts/progress/${userId}`);
+      const progressMap = {};
+
+      response.data.forEach((item) => {
+        progressMap[item.quiz_id] = item;
+      });
+
+      setAttemptProgress(progressMap);
+    } catch (error) {
+      console.error('Error fetching attempt progress:', error);
+    }
+  };
 
   const fetchQuizzes = async () => {
     try {
@@ -42,6 +68,9 @@ const QuizAttempt = () => {
         totalTime: quiz.total_time,
         timePerQuestion: quiz.time_per_question,
         totalQuestionsToShow: quiz.total_questions_to_show,
+        maxAttempts: quiz.max_attempts,
+        studyMaterialName: quiz.study_material_name,
+        studyMaterialUrl: quiz.study_material_url,
         questions: [] // Will be loaded when quiz is started
       }));
       
@@ -82,6 +111,12 @@ const QuizAttempt = () => {
 
   const startQuiz = async (quiz) => {
     try {
+      const progress = attemptProgress[quiz.id];
+      if (progress && progress.can_attempt === false) {
+        alert(`Attempt limit reached for this quiz. Max allowed: ${progress.max_attempts}`);
+        return;
+      }
+
       setLoading(true);
       // Fetch full quiz details including questions
       const response = await axios.get(`${API_URL}/quizzes/${quiz.id}`);
@@ -111,6 +146,9 @@ const QuizAttempt = () => {
         totalTime: response.data.total_time,
         timePerQuestion: response.data.time_per_question,
         totalQuestionsToShow: totalQuestionsToShow,
+        maxAttempts: response.data.max_attempts,
+        studyMaterialName: response.data.study_material_name,
+        studyMaterialUrl: response.data.study_material_url,
         questions: selectedQuestions
       };
       
@@ -278,8 +316,13 @@ const QuizAttempt = () => {
           scoreAwarded: result.score
         }))
       });
+
+      fetchAttemptProgress(username);
     } catch (error) {
       console.error('Error saving quiz attempt:', error);
+      if (error.response?.status === 403) {
+        alert(error.response?.data?.error || 'Attempt limit reached for this quiz.');
+      }
       // Don't alert the user as the quiz is already completed
     }
   };
@@ -303,6 +346,9 @@ const QuizAttempt = () => {
   if (!quizStarted) {
     return (
       <div className="quiz-attempt-container">
+        <button className="back-btn" onClick={handleBack} title="Go back">
+          ←
+        </button>
         <div className="quiz-selection-header">
           <h1>Product Knowledge Quiz</h1>
           <p>Select a quiz to test your knowledge</p>
@@ -325,6 +371,38 @@ const QuizAttempt = () => {
                   <h3>{quiz.subject}</h3>
                   <span className="quiz-badge">{quiz.question_count || 'Multiple'} Questions</span>
                 </div>
+                {(() => {
+                  const progress = attemptProgress[quiz.id] || {
+                    total_attempts: 0,
+                    successful_attempts: 0,
+                    failed_attempts: 0,
+                    max_attempts: quiz.maxAttempts,
+                    remaining_attempts: quiz.maxAttempts === null ? null : quiz.maxAttempts,
+                    can_attempt: true
+                  };
+                  const successRate = progress.total_attempts > 0
+                    ? Math.round((progress.successful_attempts / progress.total_attempts) * 100)
+                    : 0;
+
+                  return (
+                    <div className="quiz-progress-mini">
+                      <div className="progress-stats-row">
+                        <span>Attempted: <strong>{progress.total_attempts}</strong></span>
+                        <span>Successful: <strong>{progress.successful_attempts}</strong></span>
+                        <span>Failed: <strong>{progress.failed_attempts}</strong></span>
+                      </div>
+                      <div className="mini-graph-track">
+                        <div className="mini-graph-fill" style={{ width: `${successRate}%` }} />
+                      </div>
+                      <div className="progress-stats-row">
+                        <span>Success Rate: <strong>{successRate}%</strong></span>
+                        <span>
+                          Attempts Left: <strong>{progress.remaining_attempts === null ? 'Unlimited' : progress.remaining_attempts}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="quiz-card-details">
                   <div className="quiz-detail">
                     <span className="detail-label">Total Score:</span>
@@ -342,9 +420,26 @@ const QuizAttempt = () => {
                         : `${quiz.timePerQuestion} sec per question`}
                     </span>
                   </div>
+                  {quiz.studyMaterialName && quiz.studyMaterialUrl && (
+                    <div className="quiz-detail study-material-row">
+                      <span className="detail-label">Material:</span>
+                      <a
+                        href={`http://${window.location.hostname}:5000${quiz.studyMaterialUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="material-link"
+                      >
+                        Read {quiz.studyMaterialName}
+                      </a>
+                    </div>
+                  )}
                 </div>
-                <Button onClick={() => startQuiz(quiz)} className="start-quiz-btn">
-                  Start Quiz
+                <Button
+                  onClick={() => startQuiz(quiz)}
+                  className="start-quiz-btn"
+                  disabled={attemptProgress[quiz.id]?.can_attempt === false}
+                >
+                  {attemptProgress[quiz.id]?.can_attempt === false ? 'Attempt Limit Reached' : 'Start Quiz'}
                 </Button>
               </div>
             ))}
@@ -421,6 +516,9 @@ const QuizAttempt = () => {
 
   return (
     <div className="quiz-attempt-container">
+      <button className="back-btn" onClick={handleBack} title="Go back">
+        ←
+      </button>
       {/* Timer Display */}
       <div className={`timer-display ${timeLeft <= 30 ? 'warning' : ''}`}>
         <span className="timer-icon">⏱</span>

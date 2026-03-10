@@ -1,4 +1,5 @@
 import { getPool } from '../config/database.js';
+import { QUIZ_MATERIALS_PUBLIC_BASE } from '../config/upload.js';
 
 // Get all active quizzes
 export const getAllQuizzes = async (req, res) => {
@@ -24,8 +25,11 @@ export const getAllQuizzes = async (req, res) => {
         q.total_time,
         q.time_per_question,
         q.total_questions_to_show,
-          q.expiry_date,
-          q.is_active,
+        q.expiry_date,
+        q.is_active,
+        q.max_attempts,
+        q.study_material_name,
+        q.study_material_url,
         q.created_by,
         q.created_at,
         ISNULL(q.updated_at, q.created_at) as updated_at,
@@ -35,7 +39,7 @@ export const getAllQuizzes = async (req, res) => {
       WHERE q.is_active = 1
       GROUP BY q.quiz_id, q.subject, q.passing_marks, q.total_score, 
                q.time_type, q.total_time, q.time_per_question, q.total_questions_to_show,
-               q.expiry_date, q.is_active,
+               q.expiry_date, q.is_active, q.max_attempts, q.study_material_name, q.study_material_url,
                q.created_by, q.created_at, q.updated_at
       ORDER BY q.created_at DESC
     `);
@@ -117,7 +121,21 @@ export const getQuizById = async (req, res) => {
 // Create new quiz
 export const createQuiz = async (req, res) => {
   try {
-    const { subject, passingMarks, timeType, totalTime, timePerQuestion, totalQuestionsToShow, questions, createdBy, expiryDate, isActive } = req.body;
+    const {
+      subject,
+      passingMarks,
+      timeType,
+      totalTime,
+      timePerQuestion,
+      totalQuestionsToShow,
+      questions,
+      createdBy,
+      expiryDate,
+      isActive,
+      maxAttempts,
+      studyMaterialName,
+      studyMaterialUrl
+    } = req.body;
     
     const pool = await getPool();
     const transaction = pool.transaction();
@@ -138,12 +156,23 @@ export const createQuiz = async (req, res) => {
         .input('timePerQuestion', timePerQuestion)
         .input('totalQuestionsToShow', totalQuestionsToShow)
         .input('createdBy', createdBy)
-          .input('expiryDate', expiryDate || null)
-          .input('isActive', isActive !== undefined ? isActive : true)
+        .input('expiryDate', expiryDate || null)
+        .input('isActive', isActive !== undefined ? isActive : true)
+        .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
+        .input('studyMaterialName', studyMaterialName || null)
+        .input('studyMaterialUrl', studyMaterialUrl || null)
         .query(`
-          INSERT INTO quizzes (subject, passing_marks, total_score, time_type, total_time, time_per_question, total_questions_to_show, created_by, expiry_date, is_active)
+          INSERT INTO quizzes (
+            subject, passing_marks, total_score, time_type, total_time, time_per_question,
+            total_questions_to_show, created_by, expiry_date, is_active, max_attempts,
+            study_material_name, study_material_url
+          )
           OUTPUT INSERTED.quiz_id
-          VALUES (@subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion, @totalQuestionsToShow, @createdBy, @expiryDate, @isActive)
+          VALUES (
+            @subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion,
+            @totalQuestionsToShow, @createdBy, @expiryDate, @isActive, @maxAttempts,
+            @studyMaterialName, @studyMaterialUrl
+          )
         `);
       
       const quizId = quizResult.recordset[0].quiz_id;
@@ -205,6 +234,43 @@ export const submitQuizAttempt = async (req, res) => {
     await transaction.begin();
     
     try {
+      const quizConfigResult = await transaction.request()
+        .input('quizId', quizId)
+        .query(`
+          SELECT quiz_id, max_attempts
+          FROM quizzes
+          WHERE quiz_id = @quizId AND is_active = 1
+        `);
+
+      if (quizConfigResult.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(404).json({ error: 'Quiz not found or inactive' });
+      }
+
+      const quizConfig = quizConfigResult.recordset[0];
+
+      const attemptsCountResult = await transaction.request()
+        .input('quizId', quizId)
+        .input('userId', userId)
+        .query(`
+          SELECT COUNT(*) as total_attempts
+          FROM quiz_attempts
+          WHERE quiz_id = @quizId AND user_id = @userId
+        `);
+
+      const previousAttempts = attemptsCountResult.recordset[0]?.total_attempts || 0;
+      const attemptLimitReached = quizConfig.max_attempts !== null && previousAttempts >= quizConfig.max_attempts;
+
+      if (attemptLimitReached) {
+        await transaction.rollback();
+        return res.status(403).json({
+          error: 'Maximum quiz attempts reached',
+          maxAttempts: quizConfig.max_attempts,
+          totalAttempts: previousAttempts,
+          remainingAttempts: 0
+        });
+      }
+
       // Insert quiz attempt
       const attemptResult = await transaction.request()
         .input('quizId', quizId)
@@ -238,9 +304,20 @@ export const submitQuizAttempt = async (req, res) => {
             VALUES (@attemptId, @questionId, @userAnswer, @correctAnswer, @isCorrect, @scoreAwarded)
           `);
       }
+
+      const totalAttemptsAfterSubmit = previousAttempts + 1;
+      const remainingAttempts = quizConfig.max_attempts === null
+        ? null
+        : Math.max(quizConfig.max_attempts - totalAttemptsAfterSubmit, 0);
       
       await transaction.commit();
-      res.json({ message: 'Quiz attempt submitted successfully', attemptId });
+      res.json({
+        message: 'Quiz attempt submitted successfully',
+        attemptId,
+        totalAttempts: totalAttemptsAfterSubmit,
+        maxAttempts: quizConfig.max_attempts,
+        remainingAttempts
+      });
       
     } catch (error) {
       await transaction.rollback();
@@ -282,6 +359,72 @@ export const getUserAttempts = async (req, res) => {
   } catch (error) {
     console.error('Error fetching user attempts:', error);
     res.status(500).json({ error: 'Failed to fetch user attempts' });
+  }
+};
+
+export const getUserAttemptProgress = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const pool = await getPool();
+
+    const result = await pool.request()
+      .input('userId', userId)
+      .query(`
+        SELECT
+          q.quiz_id,
+          q.subject,
+          q.max_attempts,
+          q.study_material_name,
+          q.study_material_url,
+          COUNT(qa.attempt_id) as total_attempts,
+          SUM(CASE WHEN qa.passed = 1 THEN 1 ELSE 0 END) as successful_attempts,
+          SUM(CASE WHEN qa.passed = 0 THEN 1 ELSE 0 END) as failed_attempts,
+          MAX(qa.attempt_date) as last_attempt_date
+        FROM quizzes q
+        LEFT JOIN quiz_attempts qa ON q.quiz_id = qa.quiz_id AND qa.user_id = @userId
+        WHERE q.is_active = 1
+        GROUP BY q.quiz_id, q.subject, q.max_attempts, q.study_material_name, q.study_material_url
+        ORDER BY q.subject ASC
+      `);
+
+    const progress = result.recordset.map((row) => {
+      const maxAttempts = row.max_attempts;
+      const totalAttempts = row.total_attempts || 0;
+      const remainingAttempts = maxAttempts === null ? null : Math.max(maxAttempts - totalAttempts, 0);
+
+      return {
+        ...row,
+        remaining_attempts: remainingAttempts,
+        can_attempt: maxAttempts === null ? true : totalAttempts < maxAttempts
+      };
+    });
+
+    res.json(progress);
+  } catch (error) {
+    console.error('Error fetching user attempt progress:', error);
+    res.status(500).json({ error: 'Failed to fetch user attempt progress' });
+  }
+};
+
+export const uploadQuizStudyMaterial = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const materialUrl = `${QUIZ_MATERIALS_PUBLIC_BASE}/${req.file.filename}`;
+
+    res.json({
+      message: 'Study material uploaded successfully',
+      fileName: req.file.originalname,
+      fileStoredName: req.file.filename,
+      fileUrl: materialUrl,
+      mimeType: req.file.mimetype,
+      size: req.file.size
+    });
+  } catch (error) {
+    console.error('Error uploading quiz study material:', error);
+    res.status(500).json({ error: 'Failed to upload quiz study material' });
   }
 };
 
@@ -370,7 +513,21 @@ export const getQuizStatistics = async (req, res) => {
 export const updateQuiz = async (req, res) => {
   try {
     const { quizId } = req.params;
-    const { subject, passingMarks, timeType, totalTime, timePerQuestion, totalQuestionsToShow, questions, lastEditedBy, expiryDate, isActive } = req.body;
+    const {
+      subject,
+      passingMarks,
+      timeType,
+      totalTime,
+      timePerQuestion,
+      totalQuestionsToShow,
+      questions,
+      lastEditedBy,
+      expiryDate,
+      isActive,
+      maxAttempts,
+      studyMaterialName,
+      studyMaterialUrl
+    } = req.body;
     
     const pool = await getPool();
     const transaction = pool.transaction();
@@ -392,8 +549,11 @@ export const updateQuiz = async (req, res) => {
         .input('timePerQuestion', timePerQuestion)
         .input('totalQuestionsToShow', totalQuestionsToShow)
         .input('lastEditedBy', lastEditedBy)
-          .input('expiryDate', expiryDate || null)
-          .input('isActive', isActive !== undefined ? isActive : true)
+        .input('expiryDate', expiryDate || null)
+        .input('isActive', isActive !== undefined ? isActive : true)
+        .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
+        .input('studyMaterialName', studyMaterialName || null)
+        .input('studyMaterialUrl', studyMaterialUrl || null)
         .query(`
           UPDATE quizzes 
           SET subject = @subject, 
@@ -404,8 +564,11 @@ export const updateQuiz = async (req, res) => {
               time_per_question = @timePerQuestion,
               total_questions_to_show = @totalQuestionsToShow,
               last_edited_by = @lastEditedBy,
-                            expiry_date = @expiryDate,
-                            is_active = @isActive,
+              expiry_date = @expiryDate,
+              is_active = @isActive,
+              max_attempts = @maxAttempts,
+              study_material_name = @studyMaterialName,
+              study_material_url = @studyMaterialUrl,
               updated_at = GETDATE()
           WHERE quiz_id = @quizId
         `);

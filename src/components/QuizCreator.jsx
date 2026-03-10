@@ -12,6 +12,15 @@ const QuizCreator = () => {
   const [editingQuizId, setEditingQuizId] = useState(null);
   const [editTab, setEditTab] = useState('properties'); // 'properties' or 'assignments'
   const fileInputRef = useRef(null);
+  const studyMaterialInputRef = useRef(null);
+  
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/home');
+    }
+  };
   
   // Assignment management
   const [quizAssignments, setQuizAssignments] = useState([]);
@@ -20,12 +29,18 @@ const QuizCreator = () => {
   const [departments, setDepartments] = useState([]);
   const [roles, setRoles] = useState([]);
   const [grades, setGrades] = useState([]);
+  const [assignmentFilterDropdownOpen, setAssignmentFilterDropdownOpen] = useState({
+    department: false,
+    role: false,
+    grade: false
+  });
   const [eligibleCount, setEligibleCount] = useState(0);
+  const [eligibleEmployees, setEligibleEmployees] = useState([]);
   const [assignmentForm, setAssignmentForm] = useState({
     assignment_name: '',
-    filter_department: '',
-    filter_role: '',
-    filter_grade: '',
+    filter_department: [],
+    filter_role: [],
+    filter_grade: [],
     period_type: 'monthly',
     period_start_date: new Date().toISOString().split('T')[0]
   });
@@ -44,7 +59,10 @@ const QuizCreator = () => {
     totalQuestionsToShow: '',
     questions: [],
     expiryDate: '',
-    isActive: true
+    isActive: true,
+    maxAttempts: '',
+    studyMaterialName: '',
+    studyMaterialUrl: ''
   });
 
   const [currentQuestion, setCurrentQuestion] = useState({
@@ -96,8 +114,11 @@ const QuizCreator = () => {
         totalTime: quiz.total_time || '',
         timePerQuestion: quiz.time_per_question || '',
         totalQuestionsToShow: quiz.total_questions_to_show || '',
-          expiryDate: quiz.expiry_date ? new Date(quiz.expiry_date).toISOString().split('T')[0] : '',
-          isActive: quiz.is_active !== undefined ? quiz.is_active : true,
+        expiryDate: quiz.expiry_date ? new Date(quiz.expiry_date).toISOString().split('T')[0] : '',
+        isActive: quiz.is_active !== undefined ? quiz.is_active : true,
+        maxAttempts: quiz.max_attempts ?? '',
+        studyMaterialName: quiz.study_material_name || '',
+        studyMaterialUrl: quiz.study_material_url || '',
         questions: quiz.questions.map(q => ({
           id: q.question_id,
           questionText: q.question_text,
@@ -139,8 +160,9 @@ const QuizCreator = () => {
 
   const fetchFilterOptions = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
+      
       const [deptRes, roleRes, gradeRes] = await Promise.all([
         fetch('http://localhost:5000/api/employees/departments', { headers }),
         fetch('http://localhost:5000/api/employees/roles', { headers }),
@@ -149,9 +171,16 @@ const QuizCreator = () => {
       const [deptData, roleData, gradeData] = await Promise.all([
         deptRes.json(), roleRes.json(), gradeRes.json()
       ]);
-      if (deptData.success) setDepartments(deptData.departments);
-      if (roleData.success) setRoles(roleData.roles);
-      if (gradeData.success) setGrades(gradeData.grades);
+      
+      if (deptData.success) {
+        setDepartments(deptData.departments);
+      }
+      if (roleData.success) {
+        setRoles(roleData.roles);
+      }
+      if (gradeData.success) {
+        setGrades(gradeData.grades);
+      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -160,14 +189,28 @@ const QuizCreator = () => {
   const fetchEligibleCount = async () => {
     try {
       const queryParams = new URLSearchParams();
-      if (assignmentForm.filter_department) queryParams.append('department', assignmentForm.filter_department);
-      if (assignmentForm.filter_role) queryParams.append('role', assignmentForm.filter_role);
-      if (assignmentForm.filter_grade) queryParams.append('grade', assignmentForm.filter_grade);
+      if (assignmentForm.filter_department && assignmentForm.filter_department.length > 0) {
+        queryParams.set('department', assignmentForm.filter_department.join(','));
+      }
+      if (assignmentForm.filter_role && assignmentForm.filter_role.length > 0) {
+        queryParams.set('role', assignmentForm.filter_role.join(','));
+      }
+      if (assignmentForm.filter_grade && assignmentForm.filter_grade.length > 0) {
+        queryParams.set('grade', assignmentForm.filter_grade.join(','));
+      }
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/employees/eligible?${queryParams}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.success) setEligibleCount(data.count);
+      
+      if (data.success) {
+        setEligibleCount(data.count);
+        setEligibleEmployees(data.employees || []);
+      } else {
+        console.error('API returned success=false:', data);
+      }
     } catch (error) {
       console.error('Error fetching eligible count:', error);
     }
@@ -186,20 +229,21 @@ const QuizCreator = () => {
       return;
     }
     try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await axios.post('http://localhost:5000/api/quiz-assignments', {
         quiz_id: editingQuizId,
         ...assignmentForm
       }, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.data.success) {
         alert(`Assignment created for ${response.data.employees_assigned} employees!`);
         setShowAssignmentForm(false);
         setAssignmentForm({
           assignment_name: '',
-          filter_department: '',
-          filter_role: '',
-          filter_grade: '',
+          filter_department: [],
+          filter_role: [],
+          filter_grade: [],
           period_type: 'monthly',
           period_start_date: new Date().toISOString().split('T')[0]
         });
@@ -233,6 +277,47 @@ const QuizCreator = () => {
 
   const handleQuestionChange = (field, value) => {
     setCurrentQuestion({ ...currentQuestion, [field]: value });
+  };
+
+  const handleStudyMaterialUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('materialFile', file);
+
+    try {
+      const response = await axios.post(`${API_URL}/quizzes/upload-study-material`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setQuizData((prev) => ({
+        ...prev,
+        studyMaterialName: response.data.fileName,
+        studyMaterialUrl: response.data.fileUrl
+      }));
+
+      if (studyMaterialInputRef.current) {
+        studyMaterialInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Failed to upload study material:', error);
+      alert(error.response?.data?.error || 'Failed to upload study material');
+    }
+  };
+
+  const handleRemoveStudyMaterial = () => {
+    setQuizData((prev) => ({
+      ...prev,
+      studyMaterialName: '',
+      studyMaterialUrl: ''
+    }));
+
+    if (studyMaterialInputRef.current) {
+      studyMaterialInputRef.current.value = '';
+    }
   };
 
   const handleWrongAnswerChange = (index, value) => {
@@ -341,6 +426,10 @@ const QuizCreator = () => {
       alert('Please enter valid time per question in seconds');
       return;
     }
+    if (quizData.maxAttempts !== '' && parseInt(quizData.maxAttempts) <= 0) {
+      alert('Max attempts must be greater than 0, or set attempt limit to unlimited');
+      return;
+    }
 
     const totalScore = quizData.questions.reduce((sum, q) => sum + q.score, 0);
     if (parseFloat(quizData.passingMarks) > totalScore) {
@@ -358,8 +447,11 @@ const QuizCreator = () => {
         totalTime: quizData.timeType === 'total' ? parseInt(quizData.totalTime) : null,
         timePerQuestion: quizData.timeType === 'perQuestion' ? parseInt(quizData.timePerQuestion) : null,
         totalQuestionsToShow: parseInt(quizData.totalQuestionsToShow),
-          expiryDate: quizData.expiryDate || null,
-          isActive: quizData.isActive,
+        expiryDate: quizData.expiryDate || null,
+        isActive: quizData.isActive,
+        maxAttempts: quizData.maxAttempts === '' ? null : parseInt(quizData.maxAttempts),
+        studyMaterialName: quizData.studyMaterialName || null,
+        studyMaterialUrl: quizData.studyMaterialUrl || null,
         createdBy: username,
         lastEditedBy: username,
         questions: quizData.questions.map(q => ({
@@ -408,7 +500,10 @@ const QuizCreator = () => {
       totalQuestionsToShow: '',
       questions: [],
       expiryDate: '',
-      isActive: true
+      isActive: true,
+      maxAttempts: '',
+      studyMaterialName: '',
+      studyMaterialUrl: ''
     });
     setCurrentQuestion({
       questionText: '',
@@ -423,13 +518,34 @@ const QuizCreator = () => {
     setShowAssignmentForm(false);
     setAssignmentForm({
       assignment_name: '',
-      filter_department: '',
-      filter_role: '',
-      filter_grade: '',
+      filter_department: [],
+      filter_role: [],
+      filter_grade: [],
       period_type: 'monthly',
       period_start_date: new Date().toISOString().split('T')[0]
     });
     setEligibleCount(0);
+    setEligibleEmployees([]);
+  };
+
+  const toggleAssignmentFilterDropdown = (filterKey) => {
+    setAssignmentFilterDropdownOpen(prev => ({ ...prev, [filterKey]: !prev[filterKey] }));
+  };
+
+  const toggleAssignmentFilterValue = (filterType, value) => {
+    setAssignmentForm(prev => {
+      const currentValues = prev[filterType] || [];
+      const updatedValues = currentValues.includes(value)
+        ? currentValues.filter(item => item !== value)
+        : [...currentValues, value];
+      return { ...prev, [filterType]: updatedValues };
+    });
+  };
+
+  const getAssignmentSelectedLabel = (values, label) => {
+    if (!values || values.length === 0) return `All ${label}`;
+    if (values.length === 1) return values[0];
+    return `${values.length} selected`;
   };
 
   const getTotalScore = () => {
@@ -632,6 +748,9 @@ const QuizCreator = () => {
 
   return (
     <div className="quiz-creator-container">
+      <button className="back-btn" onClick={handleBack} title="Go back">
+        ←
+      </button>
       <div className="quiz-creator-header">
         <h1>Quiz Manager</h1>
         <p>Create, browse, and edit product knowledge quizzes</p>
@@ -791,6 +910,87 @@ const QuizCreator = () => {
                   Inactive quizzes won't be available for assignment or attempts
                 </span>
               </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Attempt Limit</label>
+                <select
+                  value={quizData.maxAttempts === '' ? 'unlimited' : 'limited'}
+                  onChange={(e) => {
+                    if (e.target.value === 'unlimited') {
+                      handleQuizDataChange('maxAttempts', '');
+                    } else if (quizData.maxAttempts === '') {
+                      handleQuizDataChange('maxAttempts', '2');
+                    }
+                  }}
+                  className="quiz-select"
+                >
+                  <option value="unlimited">Unlimited attempts</option>
+                  <option value="limited">Restrict attempts</option>
+                </select>
+                <span className="helper-text">Example: set to 2 to allow only 2 attempts per user</span>
+              </div>
+
+              {quizData.maxAttempts !== '' && (
+                <div className="form-group">
+                  <label>Max Attempts</label>
+                  <input
+                    type="number"
+                    value={quizData.maxAttempts}
+                    onChange={(e) => handleQuizDataChange('maxAttempts', e.target.value)}
+                    className="quiz-input"
+                    min="1"
+                    placeholder="e.g., 2"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Study Material (PDF/Word/PowerPoint)</label>
+              <input
+                ref={studyMaterialInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx"
+                onChange={handleStudyMaterialUpload}
+                className="hidden-file-input"
+              />
+
+              <div className="study-material-actions">
+                <Button
+                  type="button"
+                  className="study-material-btn"
+                  onClick={() => studyMaterialInputRef.current?.click()}
+                >
+                  {quizData.studyMaterialUrl ? 'Change Material' : 'Upload Material'}
+                </Button>
+
+                {quizData.studyMaterialUrl && (
+                  <Button
+                    type="button"
+                    className="study-material-remove-btn"
+                    onClick={handleRemoveStudyMaterial}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+
+              {quizData.studyMaterialName && quizData.studyMaterialUrl && (
+                <div className="study-material-info">
+                  <span className="success-text">✓ Uploaded: {quizData.studyMaterialName}</span>
+                  <a
+                    href={`http://${window.location.hostname}:5000${quizData.studyMaterialUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="study-material-link"
+                  >
+                    Open Material
+                  </a>
+                </div>
+              )}
+              <span className="helper-text">Users can open this document before attempting the quiz.</span>
             </div>
 
             <div className="form-group">
@@ -1127,45 +1327,84 @@ const QuizCreator = () => {
 
                     <div className="form-row">
                       <div className="form-group">
-                        <label>Filter by Department</label>
-                        <select
-                          value={assignmentForm.filter_department}
-                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_department: e.target.value})}
-                          className="quiz-select"
-                        >
-                          <option value="">All Departments</option>
-                          {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
-                          ))}
-                        </select>
+                        <label>Departments (Select multiple)</label>
+                        <div className="multi-dropdown">
+                          <button
+                            type="button"
+                            className="multi-dropdown-trigger"
+                            onClick={() => toggleAssignmentFilterDropdown('department')}
+                          >
+                            {getAssignmentSelectedLabel(assignmentForm.filter_department, 'Departments')}
+                          </button>
+                          {assignmentFilterDropdownOpen.department && (
+                            <div className="multi-dropdown-menu">
+                              {departments.map(dept => (
+                                <label key={dept} className="multi-dropdown-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={assignmentForm.filter_department.includes(dept)}
+                                    onChange={() => toggleAssignmentFilterValue('filter_department', dept)}
+                                  />
+                                  <span>{dept}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="form-group">
-                        <label>Filter by Role</label>
-                        <select
-                          value={assignmentForm.filter_role}
-                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_role: e.target.value})}
-                          className="quiz-select"
-                        >
-                          <option value="">All Roles</option>
-                          {roles.map(role => (
-                            <option key={role} value={role}>{role}</option>
-                          ))}
-                        </select>
+                        <label>Roles (Select multiple)</label>
+                        <div className="multi-dropdown">
+                          <button
+                            type="button"
+                            className="multi-dropdown-trigger"
+                            onClick={() => toggleAssignmentFilterDropdown('role')}
+                          >
+                            {getAssignmentSelectedLabel(assignmentForm.filter_role, 'Roles')}
+                          </button>
+                          {assignmentFilterDropdownOpen.role && (
+                            <div className="multi-dropdown-menu">
+                              {roles.map(role => (
+                                <label key={role} className="multi-dropdown-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={assignmentForm.filter_role.includes(role)}
+                                    onChange={() => toggleAssignmentFilterValue('filter_role', role)}
+                                  />
+                                  <span>{role}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="form-group">
-                        <label>Filter by Grade</label>
-                        <select
-                          value={assignmentForm.filter_grade}
-                          onChange={(e) => setAssignmentForm({...assignmentForm, filter_grade: e.target.value})}
-                          className="quiz-select"
-                        >
-                          <option value="">All Grades</option>
-                          {grades.map(grade => (
-                            <option key={grade} value={grade}>{grade}</option>
-                          ))}
-                        </select>
+                        <label>Grades (Select multiple)</label>
+                        <div className="multi-dropdown">
+                          <button
+                            type="button"
+                            className="multi-dropdown-trigger"
+                            onClick={() => toggleAssignmentFilterDropdown('grade')}
+                          >
+                            {getAssignmentSelectedLabel(assignmentForm.filter_grade, 'Grades')}
+                          </button>
+                          {assignmentFilterDropdownOpen.grade && (
+                            <div className="multi-dropdown-menu">
+                              {grades.map(grade => (
+                                <label key={grade} className="multi-dropdown-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={assignmentForm.filter_grade.includes(grade)}
+                                    onChange={() => toggleAssignmentFilterValue('filter_grade', grade)}
+                                  />
+                                  <span>{grade}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1197,11 +1436,47 @@ const QuizCreator = () => {
                       </div>
                     </div>
 
-                    <div className="eligible-count-display">
-                      <strong>Eligible Employees:</strong> {eligibleCount}
-                    </div>
+                    {showAssignmentForm && (
+                      eligibleEmployees.length > 0 ? (
+                        <div className="eligible-employees-section">
+                          <div className="eligible-employees-header">
+                            <strong>{eligibleEmployees.length}</strong> employee(s) will be assigned this quiz
+                          </div>
+                          <div className="eligible-employees-table-wrapper">
+                            <table className="eligible-employees-table">
+                              <thead>
+                                <tr>
+                                  <th>Employee Code</th>
+                                  <th>Name</th>
+                                  <th>Employee ID</th>
+                                  <th>Department</th>
+                                  <th>Role</th>
+                                  <th>Grade</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {eligibleEmployees.map(employee => (
+                                  <tr key={employee.id}>
+                                    <td>{employee.employee_code}</td>
+                                    <td>{employee.employee_name}</td>
+                                    <td>{employee.employee_id}</td>
+                                    <td>{employee.functional_department}</td>
+                                    <td>{employee.functional_role}</td>
+                                    <td>{employee.grade}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="eligible-count-display" style={{background: '#fff3cd', borderColor: '#ffc107', color: '#856404'}}>
+                          <strong>0</strong> employee(s) match the selected filters. Adjust filters or leave empty for all active employees.
+                        </div>
+                      )
+                    )}
 
-                    <Button type="submit" className="save-quiz-btn">
+                    <Button type="submit" className="save-quiz-btn" disabled={eligibleEmployees.length === 0}>
                       Create Assignment
                     </Button>
                   </form>

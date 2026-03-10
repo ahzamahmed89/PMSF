@@ -1,5 +1,6 @@
 import express from 'express'
 import { upload } from '../config/upload.js'
+import { quizMaterialUpload } from '../config/upload.js'
 import { 
   getPMSFMaster, 
   addPMSFMaster, 
@@ -26,9 +27,11 @@ import {
   updateQuiz,
   submitQuizAttempt,
   getUserAttempts,
+  getUserAttemptProgress,
   getAttemptDetails,
   getQuizStatistics,
-  deleteQuiz
+  deleteQuiz,
+  uploadQuizStudyMaterial
 } from '../controllers/quizController.js'
 
 import {
@@ -156,6 +159,9 @@ router.get('/quizzes/:quizId', getQuizById)
 // Create new quiz
 router.post('/quizzes', createQuiz)
 
+// Upload study material for quiz (PDF/Word/PowerPoint)
+router.post('/quizzes/upload-study-material', quizMaterialUpload.single('materialFile'), uploadQuizStudyMaterial)
+
 // Update existing quiz
 router.put('/quizzes/:quizId', updateQuiz)
 
@@ -164,6 +170,9 @@ router.post('/quiz-attempts', submitQuizAttempt)
 
 // Get user's quiz attempt history
 router.get('/quiz-attempts/user/:userId', getUserAttempts)
+
+// Get user's per-quiz attempt progress summary
+router.get('/quiz-attempts/progress/:userId', getUserAttemptProgress)
 
 // Get attempt details with answers
 router.get('/quiz-attempts/:attemptId', getAttemptDetails)

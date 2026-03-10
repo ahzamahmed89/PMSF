@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/EmployeeManager.css';
 
 const EmployeeManager = () => {
+    const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'create'
@@ -40,11 +42,31 @@ const EmployeeManager = () => {
     const [editingEmployee, setEditingEmployee] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
     const [message, setMessage] = useState({ type: '', text: '' });
+
+    const getAuthToken = () => localStorage.getItem('authToken') || localStorage.getItem('token');
+    const getAuthHeaders = (extraHeaders = {}) => ({
+        ...extraHeaders,
+        'Authorization': `Bearer ${getAuthToken()}`
+    });
+    const handleUnauthorized = () => {
+        setEmployees([]);
+        setMessage({ type: 'error', text: 'Session expired. Please login again.' });
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('isAuthenticated');
+        navigate('/login');
+    };
     
     // Fetch employees
     const fetchEmployees = async () => {
         try {
             setLoading(true);
+            const token = getAuthToken();
+            if (!token) {
+                handleUnauthorized();
+                return;
+            }
+
             const queryParams = new URLSearchParams();
             if (filters.search) queryParams.append('search', filters.search);
             if (filters.department) queryParams.append('department', filters.department);
@@ -53,18 +75,30 @@ const EmployeeManager = () => {
             if (filters.active) queryParams.append('active', filters.active);
             
             const response = await fetch(`http://localhost:5000/api/employees?${queryParams}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
+
+            if (response.status === 401) {
+                handleUnauthorized();
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to fetch employees (${response.status})`);
+            }
             
             const data = await response.json();
             if (data.success) {
                 setEmployees(data.employees);
+            } else {
+                setEmployees([]);
+                setMessage({ type: 'error', text: data.message || 'Failed to fetch employees' });
             }
         } catch (error) {
             console.error('Error fetching employees:', error);
-            setMessage({ type: 'error', text: 'Failed to fetch employees' });
+            setEmployees([]);
+            setMessage({ type: 'error', text: error.message || 'Failed to fetch employees' });
         } finally {
             setLoading(false);
         }
@@ -73,8 +107,13 @@ const EmployeeManager = () => {
     // Fetch filter options
     const fetchFilterOptions = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
+            const token = getAuthToken();
+            if (!token) {
+                handleUnauthorized();
+                return;
+            }
+
+            const headers = getAuthHeaders();
             
             const [deptRes, roleRes, gradeRes] = await Promise.all([
                 fetch('http://localhost:5000/api/employees/departments', { headers }),
@@ -82,6 +121,11 @@ const EmployeeManager = () => {
                 fetch('http://localhost:5000/api/employees/grades', { headers })
             ]);
             
+            if (deptRes.status === 401 || roleRes.status === 401 || gradeRes.status === 401) {
+                handleUnauthorized();
+                return;
+            }
+
             const [deptData, roleData, gradeData] = await Promise.all([
                 deptRes.json(),
                 roleRes.json(),
@@ -130,10 +174,7 @@ const EmployeeManager = () => {
             
             const response = await fetch(url, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(formData)
             });
             
@@ -164,9 +205,7 @@ const EmployeeManager = () => {
             setLoading(true);
             const response = await fetch(`http://localhost:5000/api/employees/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
             
             const data = await response.json();
@@ -384,10 +423,7 @@ const EmployeeManager = () => {
             setLoading(true);
             const response = await fetch('http://localhost:5000/api/employees/bulk-import/preview', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ employees: employeesToPreview })
             });
 
@@ -436,10 +472,7 @@ const EmployeeManager = () => {
             setLoading(true);
             const response = await fetch('http://localhost:5000/api/employees/bulk-import', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     employees: importedEmployees,
                     syncMode: importMode === 'sync',
@@ -624,7 +657,7 @@ const EmployeeManager = () => {
                                     ref={fileInputRef}
                                     accept=".csv"
                                     onChange={handleCsvUpload}
-                                    className="csv-file-input"
+                                    className="employee-csv-file-input"
                                     id="csv-file-input"
                                 />
                                 <label htmlFor="csv-file-input" className="btn-upload-csv">

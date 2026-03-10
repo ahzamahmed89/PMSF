@@ -5,6 +5,7 @@ import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 // Upload directory
 const UPLOAD_DIR = 'C:\\Users\\HomePC\\Desktop\\Images';
@@ -50,3 +51,42 @@ export const upload = multer({
   },
   fileFilter: fileFilter
 });
+
+const QUIZ_MATERIALS_DIR = path.join(PROJECT_ROOT, 'uploads', 'quiz-materials');
+
+if (!fs.existsSync(QUIZ_MATERIALS_DIR)) {
+  fs.mkdirSync(QUIZ_MATERIALS_DIR, { recursive: true });
+}
+
+const quizMaterialStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, QUIZ_MATERIALS_DIR);
+  },
+  filename: function (req, file, cb) {
+    const timestamp = Date.now();
+    const safeBaseName = path.parse(file.originalname).name.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${safeBaseName}_${timestamp}${ext}`);
+  }
+});
+
+const quizMaterialFilter = (req, file, cb) => {
+  const allowedExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx'];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  if (allowedExtensions.includes(ext)) {
+    return cb(null, true);
+  }
+
+  cb(new Error('Only PDF, Word, and PowerPoint files are allowed.'));
+};
+
+export const quizMaterialUpload = multer({
+  storage: quizMaterialStorage,
+  limits: {
+    fileSize: 25 * 1024 * 1024
+  },
+  fileFilter: quizMaterialFilter
+});
+
+export const QUIZ_MATERIALS_PUBLIC_BASE = '/uploads/quiz-materials';

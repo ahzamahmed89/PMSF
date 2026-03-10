@@ -3,6 +3,39 @@
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
   padding: 20px;
   overflow-y: auto;
+  position: relative;
+}
+
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #1a5632;
+  color: #1a5632;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.back-btn:hover {
+  background: #1a5632;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(26, 86, 50, 0.3);
+}
+
+.back-btn:active {
+  transform: scale(0.95);
 }
 
 .quiz-creator-header {
@@ -128,6 +161,56 @@
   background: white;
 }
 
+.quiz-select.multi-select {
+  min-height: 130px;
+}
+
+.multi-dropdown {
+  position: relative;
+}
+
+.multi-dropdown-trigger {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.multi-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 30;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.multi-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.multi-dropdown-item:hover {
+  background: #f5f9f6;
+}
+
+.multi-dropdown-item input[type="checkbox"] {
+  accent-color: #2d8f55;
+}
+
 .correct-answer {
   border-color: #4caf50;
   background: #f1f8f4;
@@ -223,6 +306,49 @@
   font-size: 13px;
   margin-top: 8px;
   font-weight: 500;
+}
+
+.study-material-info {
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.study-material-link {
+  color: #1a5632;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.study-material-link:hover {
+  text-decoration: underline;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.study-material-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.study-material-btn,
+.study-material-remove-btn {
+  min-width: 140px;
+}
+
+.study-material-remove-btn {
+  background: #fff4f4;
+  color: #b23a3a;
+  border: 1px solid #efc1c1;
+}
+
+.study-material-remove-btn:hover {
+  background: #ffeaea;
 }
 
 .csv-actions {
@@ -782,9 +908,110 @@
   padding: 15px;
   border-radius: 8px;
   margin: 15px 0;
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fafafa;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+
+  .checkbox-label:hover {
+    background: #f0f0f0;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #2d8f55;
+  }
+
+  .checkbox-label span {
+    font-size: 14px;
+    color: #333;
+    user-select: none;
+  }
   text-align: center;
   font-size: 16px;
   color: #1a5632;
+}
+
+.eligible-employees-section {
+  margin: 20px 0;
+  border: 2px solid #e8f5e9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.eligible-employees-header {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 12px 15px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.eligible-employees-header strong {
+  font-size: 18px;
+}
+
+.eligible-employees-table-wrapper {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.eligible-employees-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.eligible-employees-table thead {
+  background: linear-gradient(135deg, #2d8f55 0%, #1a5632 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.eligible-employees-table th {
+  padding: 10px 12px;
+  text-align: left;
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.eligible-employees-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s ease;
+}
+
+.eligible-employees-table tbody tr:hover {
+  background: #f5f9f6;
+}
+
+.eligible-employees-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #333;
 }
 
 .assignments-list-section {

@@ -16,6 +16,9 @@ CREATE TABLE quizzes (
     time_per_question INT NULL, -- Time per question in seconds (if time_type = perQuestion)
     total_questions_to_show INT NULL, -- Total number of questions to show on each quiz attempt (randomly selected)
     created_by NVARCHAR(100) NULL, -- Admin username who created the quiz
+    max_attempts INT NULL, -- NULL = unlimited attempts, otherwise limited count
+    study_material_name NVARCHAR(255) NULL, -- Uploaded file name for pre-quiz study
+    study_material_url NVARCHAR(500) NULL, -- URL path to study material file
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     last_edited_by NVARCHAR(100) NULL, -- Admin username who last edited the quiz

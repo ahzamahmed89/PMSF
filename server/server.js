@@ -2,12 +2,16 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { initializePool } from './config/database.js'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const PROJECT_ROOT = path.resolve(__dirname, '..')
 
 // Middleware
 app.use(cors({
@@ -19,6 +23,7 @@ app.use(express.json())
 
 // Serve static images from the Images folder
 app.use('/images', express.static('C:/Users/HomePC/Desktop/Images'))
+app.use('/uploads', express.static(path.join(PROJECT_ROOT, 'uploads')))
 
 // Health check route
 app.get('/api/health', (req, res) => {

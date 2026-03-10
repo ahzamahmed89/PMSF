@@ -465,6 +465,119 @@
     margin: 0 0 15px 0;
 }
 
+.form-select.multi-select {
+    min-height: 130px;
+}
+
+.multi-dropdown {
+    position: relative;
+}
+
+.multi-dropdown-trigger {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.multi-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 30;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.multi-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.multi-dropdown-item:hover {
+    background: #f5f9f6;
+}
+
+.multi-dropdown-item input[type="checkbox"] {
+    accent-color: #2d8f55;
+}
+
+.eligible-employees-section {
+    margin-top: 20px;
+    border: 2px solid #e8f5e9;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.eligible-employees-header {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 12px 15px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.eligible-employees-header strong {
+    font-size: 18px;
+}
+
+.eligible-employees-table-wrapper {
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.eligible-employees-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.eligible-employees-table thead {
+    background: linear-gradient(135deg, #2d8f55 0%, #1a5632 100%);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.eligible-employees-table th {
+    padding: 10px 12px;
+    text-align: left;
+    color: white;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.eligible-employees-table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+    transition: background 0.2s ease;
+}
+
+.eligible-employees-table tbody tr:hover {
+    background: #f5f9f6;
+}
+
+.eligible-employees-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #333;
+}
+
+/* Old style kept for backward compatibility */
 .eligible-employees-info {
     background: #e8f5e9;
     color: #2e7d32;

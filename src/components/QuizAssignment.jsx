@@ -16,29 +16,44 @@ const QuizAssignment = () => {
     const [departments, setDepartments] = useState([]);
     const [roles, setRoles] = useState([]);
     const [grades, setGrades] = useState([]);
+    const [filterDropdownOpen, setFilterDropdownOpen] = useState({
+        department: false,
+        role: false,
+        grade: false
+    });
     
     // Assignment form
     const [assignmentForm, setAssignmentForm] = useState({
         quiz_id: '',
         assignment_name: '',
-        filter_department: '',
-        filter_role: '',
-        filter_grade: '',
+        filter_department: [],
+        filter_role: [],
+        filter_grade: [],
         period_type: 'monthly',
         period_start_date: new Date().toISOString().split('T')[0]
     });
     
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [assignmentDetails, setAssignmentDetails] = useState(null);
+
+    const getAuthToken = () => localStorage.getItem('authToken') || localStorage.getItem('token');
+    const getAuthHeaders = (includeContentType = false) => {
+        const token = getAuthToken();
+        const headers = {
+            'Authorization': `Bearer ${token}`
+        };
+        if (includeContentType) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    };
     
     // Fetch assignments
     const fetchAssignments = async () => {
         try {
             setLoading(true);
             const response = await fetch('http://localhost:5000/api/quiz-assignments?active=true', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
             
             const data = await response.json();
@@ -57,9 +72,7 @@ const QuizAssignment = () => {
     const fetchQuizzes = async () => {
         try {
             const response = await fetch('http://localhost:5000/api/quizzes', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
             
             const data = await response.json();
@@ -77,8 +90,7 @@ const QuizAssignment = () => {
     // Fetch filter options
     const fetchFilterOptions = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
+            const headers = getAuthHeaders();
             
             const [deptRes, roleRes, gradeRes] = await Promise.all([
                 fetch('http://localhost:5000/api/employees/departments', { headers }),
@@ -92,11 +104,18 @@ const QuizAssignment = () => {
                 gradeRes.json()
             ]);
             
-            if (deptData.success) setDepartments(deptData.departments);
-            if (roleData.success) setRoles(roleData.roles);
-            if (gradeData.success) setGrades(gradeData.grades);
+            if (deptData.success) {
+                setDepartments(deptData.departments);
+            }
+            if (roleData.success) {
+                setRoles(roleData.roles);
+            }
+            if (gradeData.success) {
+                setGrades(gradeData.grades);
+            }
         } catch (error) {
             console.error('Error fetching filter options:', error);
+            setMessage({ type: 'error', text: 'Failed to fetch filter options' });
         }
     };
     
@@ -104,22 +123,31 @@ const QuizAssignment = () => {
     const fetchEligibleEmployees = async () => {
         try {
             const queryParams = new URLSearchParams();
-            if (assignmentForm.filter_department) queryParams.append('department', assignmentForm.filter_department);
-            if (assignmentForm.filter_role) queryParams.append('role', assignmentForm.filter_role);
-            if (assignmentForm.filter_grade) queryParams.append('grade', assignmentForm.filter_grade);
+            if (assignmentForm.filter_department && assignmentForm.filter_department.length > 0) {
+                queryParams.set('department', assignmentForm.filter_department.join(','));
+            }
+            if (assignmentForm.filter_role && assignmentForm.filter_role.length > 0) {
+                queryParams.set('role', assignmentForm.filter_role.join(','));
+            }
+            if (assignmentForm.filter_grade && assignmentForm.filter_grade.length > 0) {
+                queryParams.set('grade', assignmentForm.filter_grade.join(','));
+            }
             
             const response = await fetch(`http://localhost:5000/api/employees/eligible?${queryParams}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
             
             const data = await response.json();
+            
             if (data.success) {
-                setEligibleEmployees(data.employees);
+                setEligibleEmployees(data.employees || []);
+            } else {
+                console.error('API returned success=false:', data);
+                setMessage({ type: 'error', text: data.message || 'Failed to fetch employees' });
             }
         } catch (error) {
             console.error('Error fetching eligible employees:', error);
+            setMessage({ type: 'error', text: 'Failed to fetch employees: ' + error.message });
         }
     };
     
@@ -128,9 +156,7 @@ const QuizAssignment = () => {
         try {
             setLoading(true);
             const response = await fetch(`http://localhost:5000/api/quiz-assignments/${assignmentId}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                headers: getAuthHeaders()
             });
             
             const data = await response.json();
@@ -194,10 +220,7 @@ const QuizAssignment = () => {
             setLoading(true);
             const response = await fetch('http://localhost:5000/api/quiz-assignments', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify(assignmentForm)
             });
             
@@ -228,10 +251,7 @@ const QuizAssignment = () => {
             setLoading(true);
             const response = await fetch(`http://localhost:5000/api/quiz-assignments/${assignmentId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify({ is_active: false })
             });
             
@@ -256,13 +276,33 @@ const QuizAssignment = () => {
         setAssignmentForm({
             quiz_id: '',
             assignment_name: '',
-            filter_department: '',
-            filter_role: '',
-            filter_grade: '',
+            filter_department: [],
+            filter_role: [],
+            filter_grade: [],
             period_type: 'monthly',
             period_start_date: new Date().toISOString().split('T')[0]
         });
         setEligibleEmployees([]);
+    };
+
+    const toggleFilterDropdown = (filterKey) => {
+        setFilterDropdownOpen(prev => ({ ...prev, [filterKey]: !prev[filterKey] }));
+    };
+
+    const toggleFilterValue = (filterType, value) => {
+        setAssignmentForm(prev => {
+            const currentValues = prev[filterType] || [];
+            const updatedValues = currentValues.includes(value)
+                ? currentValues.filter(item => item !== value)
+                : [...currentValues, value];
+            return { ...prev, [filterType]: updatedValues };
+        });
+    };
+
+    const getSelectedLabel = (values, label) => {
+        if (!values || values.length === 0) return `All ${label}`;
+        if (values.length === 1) return values[0];
+        return `${values.length} selected`;
     };
     
     // Clear message after 5 seconds
@@ -497,56 +537,86 @@ const QuizAssignment = () => {
                             
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Department</label>
-                                    <select
-                                        name="filter_department"
-                                        value={assignmentForm.filter_department}
-                                        onChange={handleInputChange}
-                                        className="form-select"
-                                    >
-                                        <option value="">All Departments</option>
-                                        {departments.map(dept => (
-                                            <option key={dept} value={dept}>{dept}</option>
-                                        ))}
-                                    </select>
+                                    <label>Departments (Select multiple)</label>
+                                    <div className="multi-dropdown">
+                                        <button
+                                            type="button"
+                                            className="multi-dropdown-trigger"
+                                            onClick={() => toggleFilterDropdown('department')}
+                                        >
+                                            {getSelectedLabel(assignmentForm.filter_department, 'Departments')}
+                                        </button>
+                                        {filterDropdownOpen.department && (
+                                            <div className="multi-dropdown-menu">
+                                                {departments.map(dept => (
+                                                    <label key={dept} className="multi-dropdown-item">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={assignmentForm.filter_department.includes(dept)}
+                                                            onChange={() => toggleFilterValue('filter_department', dept)}
+                                                        />
+                                                        <span>{dept}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 <div className="form-group">
-                                    <label>Role</label>
-                                    <select
-                                        name="filter_role"
-                                        value={assignmentForm.filter_role}
-                                        onChange={handleInputChange}
-                                        className="form-select"
-                                    >
-                                        <option value="">All Roles</option>
-                                        {roles.map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                    </select>
+                                    <label>Roles (Select multiple)</label>
+                                    <div className="multi-dropdown">
+                                        <button
+                                            type="button"
+                                            className="multi-dropdown-trigger"
+                                            onClick={() => toggleFilterDropdown('role')}
+                                        >
+                                            {getSelectedLabel(assignmentForm.filter_role, 'Roles')}
+                                        </button>
+                                        {filterDropdownOpen.role && (
+                                            <div className="multi-dropdown-menu">
+                                                {roles.map(role => (
+                                                    <label key={role} className="multi-dropdown-item">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={assignmentForm.filter_role.includes(role)}
+                                                            onChange={() => toggleFilterValue('filter_role', role)}
+                                                        />
+                                                        <span>{role}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 <div className="form-group">
-                                    <label>Grade</label>
-                                    <select
-                                        name="filter_grade"
-                                        value={assignmentForm.filter_grade}
-                                        onChange={handleInputChange}
-                                        className="form-select"
-                                    >
-                                        <option value="">All Grades</option>
-                                        {grades.map(grade => (
-                                            <option key={grade} value={grade}>{grade}</option>
-                                        ))}
-                                    </select>
+                                    <label>Grades (Select multiple)</label>
+                                    <div className="multi-dropdown">
+                                        <button
+                                            type="button"
+                                            className="multi-dropdown-trigger"
+                                            onClick={() => toggleFilterDropdown('grade')}
+                                        >
+                                            {getSelectedLabel(assignmentForm.filter_grade, 'Grades')}
+                                        </button>
+                                        {filterDropdownOpen.grade && (
+                                            <div className="multi-dropdown-menu">
+                                                {grades.map(grade => (
+                                                    <label key={grade} className="multi-dropdown-item">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={assignmentForm.filter_grade.includes(grade)}
+                                                            onChange={() => toggleFilterValue('filter_grade', grade)}
+                                                        />
+                                                        <span>{grade}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            
-                            {eligibleEmployees.length > 0 && (
-                                <div className="eligible-employees-info">
-                                    <strong>{eligibleEmployees.length}</strong> employee(s) will be assigned this quiz
-                                </div>
-                            )}
                         </div>
                         
                         <div className="period-section">
@@ -590,6 +660,46 @@ const QuizAssignment = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {viewMode === 'assign' && (
+                            eligibleEmployees.length > 0 ? (
+                                <div className="eligible-employees-section">
+                                    <div className="eligible-employees-header">
+                                        <strong>{eligibleEmployees.length}</strong> employee(s) will be assigned this quiz
+                                    </div>
+                                    <div className="eligible-employees-table-wrapper">
+                                        <table className="eligible-employees-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Employee Code</th>
+                                                    <th>Name</th>
+                                                    <th>Employee ID</th>
+                                                    <th>Department</th>
+                                                    <th>Role</th>
+                                                    <th>Grade</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {eligibleEmployees.map(employee => (
+                                                    <tr key={employee.id}>
+                                                        <td>{employee.employee_code}</td>
+                                                        <td>{employee.employee_name}</td>
+                                                        <td>{employee.employee_id}</td>
+                                                        <td>{employee.functional_department}</td>
+                                                        <td>{employee.functional_role}</td>
+                                                        <td>{employee.grade}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="eligible-employees-info">
+                                    <strong>0</strong> employee(s) match the selected filters. Adjust filters or leave empty for all active employees.
+                                </div>
+                            )
+                        )}
                         
                         <div className="form-actions">
                             <button 

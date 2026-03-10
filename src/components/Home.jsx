@@ -15,7 +15,8 @@ const Home = ({ onLogout, username }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState({
     branchMystery: false,
-    productKnowledge: false
+    productKnowledge: false,
+    employeeManagement: false
   });
   const [marqueeItems, setMarqueeItems] = useState([]);
   const [showMarqueeEditor, setShowMarqueeEditor] = useState(false);
@@ -378,18 +379,33 @@ const Home = ({ onLogout, username }) => {
                       </Link>
                     )}
                     {(isAdmin || hasPermission('QUIZ_CREATE')) && (
-                      <>
-                        <Link to="/employees" className="nav-link" onClick={() => setShowMenu(false)}>
-                          👥 Manage Employees
-                        </Link>
-                        <Link to="/quiz-assignments" className="nav-link" onClick={() => setShowMenu(false)}>
-                          📋 Assign Quizzes
-                        </Link>
-                      </>
+                      <Link to="/quiz-assignments" className="nav-link" onClick={() => setShowMenu(false)}>
+                        📋 Assign Quizzes
+                      </Link>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Employee Management Section */}
+              {(isAdmin || hasPermission('QUIZ_CREATE')) && (
+                <div className="menu-section">
+                  <div
+                    className={`section-title ${expandedSections.employeeManagement ? 'expanded' : ''}`}
+                    onClick={() => toggleSection('employeeManagement')}
+                  >
+                    <span>Employee Management</span>
+                    <span className={`dropdown-icon ${expandedSections.employeeManagement ? 'expanded' : ''}`}>▼</span>
+                  </div>
+                  {expandedSections.employeeManagement && (
+                    <div className="section-items">
+                      <Link to="/employees" className="nav-link" onClick={() => setShowMenu(false)}>
+                        👥 Manage Employees
+                      </Link>
+                    </div>
+                  )}
+                  </div>
+              )}
 
               {/* Admin Section */}
               {(isAdmin || hasPermission('USER_MANAGEMENT')) && (

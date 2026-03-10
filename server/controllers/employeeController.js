@@ -441,20 +441,80 @@ export const getGrades = async (req, res) => {
 // Get eligible employees for quiz assignment (with filters)
 export const getEligibleEmployees = async (req, res) => {
     try {
-        const { department, role, grade } = req.query;
+        const normalizeQueryValues = (rawValue) => {
+            if (!rawValue) return [];
+            if (Array.isArray(rawValue)) {
+                return rawValue
+                    .flatMap(value => String(value).split(','))
+                    .map(value => value.trim())
+                    .filter(Boolean);
+            }
+            return String(rawValue)
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean);
+        };
+
+        const departments = normalizeQueryValues(req.query.department);
+        const roles = normalizeQueryValues(req.query.role);
+        const grades = normalizeQueryValues(req.query.grade);
+        
         const pool = await getPool();
         
-        const result = await pool.request()
-            .input('department', sql.NVarChar, department || null)
-            .input('role', sql.NVarChar, role || null)
-            .input('grade', sql.VarChar, grade || null)
-            .execute('sp_GetEligibleEmployees');
+        // Build dynamic query for multiple filter support
+        let query = `
+            SELECT 
+                id,
+                employee_code,
+                employee_name,
+                employee_id,
+                functional_department,
+                functional_role,
+                grade
+            FROM employees
+            WHERE is_active = 1
+        `;
+        
+        const queryConditions = [];
+        const request = pool.request();
+        
+        if (departments.length > 0) {
+            const deptParams = departments.map((_, i) => `@dept${i}`).join(',');
+            queryConditions.push(`functional_department IN (${deptParams})`);
+            departments.forEach((dept, i) => {
+                request.input(`dept${i}`, sql.NVarChar, dept);
+            });
+        }
+        
+        if (roles.length > 0) {
+            const roleParams = roles.map((_, i) => `@role${i}`).join(',');
+            queryConditions.push(`functional_role IN (${roleParams})`);
+            roles.forEach((role, i) => {
+                request.input(`role${i}`, sql.NVarChar, role);
+            });
+        }
+        
+        if (grades.length > 0) {
+            const gradeParams = grades.map((_, i) => `@grade${i}`).join(',');
+            queryConditions.push(`grade IN (${gradeParams})`);
+            grades.forEach((grade, i) => {
+                request.input(`grade${i}`, sql.VarChar, grade);
+            });
+        }
+        
+        if (queryConditions.length > 0) {
+            query += ' AND ' + queryConditions.join(' AND ');
+        }
+        
+        query += ' ORDER BY employee_name';
+        
+        const result = await request.query(query);
         
         res.json({
             success: true,
             employees: result.recordset,
             count: result.recordset.length,
-            filters: { department, role, grade }
+            filters: { departments, roles, grades }
         });
         
     } catch (error) {
