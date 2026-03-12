@@ -138,6 +138,47 @@
   margin-bottom: 16px;
 }
 
+
+.assignment-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+.status-badge.attempted {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #28a745;
+}
+
+.deadline-info {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2d8f55;
+  padding: 2px 6px;
+  background: #e8f5e9;
+  border-radius: 4px;
+}
+
+.deadline-info.urgent {
+  color: #d32f2f;
+  background: #ffebee;
+}
 .progress-stats-row {
   display: flex;
   justify-content: space-between;
@@ -701,3 +742,4 @@
     margin-left: 0;
   }
 }
+

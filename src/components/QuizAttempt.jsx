@@ -22,6 +22,8 @@ const QuizAttempt = () => {
   const [loading, setLoading] = useState(false);
   const [startTime, setStartTime] = useState(null);
   const [attemptProgress, setAttemptProgress] = useState({});
+  const [assignmentDetails, setAssignmentDetails] = useState({});
+  const [currentAssignmentId, setCurrentAssignmentId] = useState(null);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -56,28 +58,47 @@ const QuizAttempt = () => {
   const fetchQuizzes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/quizzes`);
+      const username = localStorage.getItem('username') || 'guest';
       
-      // Transform the data to match the component's expected format
-      const transformedQuizzes = response.data.map(quiz => ({
-        id: quiz.quiz_id,
-        subject: quiz.subject,
-        passingMarks: quiz.passing_marks,
-        totalScore: quiz.total_score,
-        timeType: quiz.time_type,
-        totalTime: quiz.total_time,
-        timePerQuestion: quiz.time_per_question,
-        totalQuestionsToShow: quiz.total_questions_to_show,
-        maxAttempts: quiz.max_attempts,
-        studyMaterialName: quiz.study_material_name,
-        studyMaterialUrl: quiz.study_material_url,
-        questions: [] // Will be loaded when quiz is started
-      }));
+      // Fetch only assigned quizzes for the current user
+      const response = await axios.get(`${API_URL}/quiz-assignments/my-quizzes/${username}`);
       
+      // Map assignment details and quiz data
+      const detailsMap = {};
+      const transformedQuizzes = response.data.map(item => {
+        detailsMap[item.quiz_id] = {
+          assignment_id: item.assignment_id,
+          assignment_name: item.assignment_name,
+          period_type: item.period_type,
+          period_start_date: item.period_start_date,
+          period_end_date: item.period_end_date,
+          status: item.status,
+          expires_at: item.expires_at,
+          attempts_left: item.remaining_attempts,
+          max_attempts: item.max_attempts
+        };
+        
+        return {
+          id: item.quiz_id,
+          subject: item.quiz_title,
+          passingMarks: item.passing_marks,
+          totalScore: item.total_score,
+          timeType: item.time_type,
+          totalTime: item.total_time,
+          timePerQuestion: item.time_per_question,
+          totalQuestionsToShow: item.total_questions_to_show,
+          maxAttempts: item.max_attempts,
+          studyMaterialName: item.study_material_name,
+          studyMaterialUrl: item.study_material_url,
+          questions: []
+        };
+      });
+      
+      setAssignmentDetails(detailsMap);
       setQuizzes(transformedQuizzes);
     } catch (error) {
-      console.error('Error fetching quizzes:', error);
-      alert('Failed to load quizzes. Please try again.');
+      console.error('Error fetching assigned quizzes:', error);
+      setQuizzes([]);
     } finally {
       setLoading(false);
     }
@@ -116,6 +137,9 @@ const QuizAttempt = () => {
         alert(`Attempt limit reached for this quiz. Max allowed: ${progress.max_attempts}`);
         return;
       }
+      
+      const assignmentId = assignmentDetails[quiz.id]?.assignment_id;
+      setCurrentAssignmentId(assignmentId);
 
       setLoading(true);
       // Fetch full quiz details including questions
@@ -294,10 +318,11 @@ const QuizAttempt = () => {
     setResults(results);
     setQuizCompleted(true);
 
-    // Save attempt to database
+    // Save attempt and update assignment status
     try {
       const username = localStorage.getItem('username') || 'guest';
       
+      // Save quiz attempt
       await axios.post(`${API_URL}/quiz-attempts`, {
         quizId: selectedQuiz.id,
         userId: username,
@@ -316,6 +341,19 @@ const QuizAttempt = () => {
           scoreAwarded: result.score
         }))
       });
+      
+      // Update assignment status to completed if assigned
+      if (currentAssignmentId) {
+        try {
+          await axios.put(`${API_URL}/quiz-assignments/${currentAssignmentId}/mark-completed`, {
+            quiz_id: selectedQuiz.id,
+            employee_id: username,
+            status: passed ? 'completed' : 'completed'
+          });
+        } catch (assignmentError) {
+          console.warn('Could not update assignment status:', assignmentError);
+        }
+      }
 
       fetchAttemptProgress(username);
     } catch (error) {
@@ -323,7 +361,6 @@ const QuizAttempt = () => {
       if (error.response?.status === 403) {
         alert(error.response?.data?.error || 'Attempt limit reached for this quiz.');
       }
-      // Don't alert the user as the quiz is already completed
     }
   };
 

@@ -375,7 +375,7 @@ const Home = ({ onLogout, username }) => {
                     )}
                     {hasPermission('QUIZ_ATTEMPT') && (
                       <Link to="/quiz-attempt" className="nav-link" onClick={() => setShowMenu(false)}>
-                        📖 Take Quiz
+                        📖 Attempt Quiz
                       </Link>
                     )}
                     {(isAdmin || hasPermission('QUIZ_CREATE')) && (

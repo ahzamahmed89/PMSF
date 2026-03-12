@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import * as quizAssignmentController from '../controllers/quizAssignmentController.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
@@ -14,6 +14,7 @@ router.get('/', quizAssignmentController.getAllAssignments);
 router.get('/dashboard', quizAssignmentController.getEmployeeDashboard);
 
 // Get my assigned quizzes (employee view)
+router.get('/my-quizzes/:employeeId', quizAssignmentController.getMyAssignedQuizzes);
 router.get('/my-quizzes', quizAssignmentController.getMyAssignedQuizzes);
 
 // Get assignment statistics
@@ -32,6 +33,10 @@ router.post('/refresh-period', requireRole(['Admin', 'Editor']), quizAssignmentC
 router.put('/:id', requireRole(['Admin', 'Editor']), quizAssignmentController.updateAssignment);
 
 // Delete assignment (Admin only)
+// Mark assignment as completed (after quiz attempt)
+router.put('/:id/mark-completed', quizAssignmentController.markAssignmentCompleted);
+
 router.delete('/:id', requireRole(['Admin']), quizAssignmentController.deleteAssignment);
 
 export default router;
+
