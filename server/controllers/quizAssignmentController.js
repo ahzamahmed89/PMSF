@@ -562,30 +562,55 @@ export const getAssignmentStatistics = async (req, res) => {
 // Get my assigned quizzes (for employee view)
 export const getMyAssignedQuizzes = async (req, res) => {
     try {
-        let employee_id = req.params.employeeId || req.query.employee_id;
+        let identifier = req.params.employeeId || req.query.employee_id;
         
-        if (!employee_id) {
+        if (!identifier) {
             return res.status(400).json({
                 success: false,
-                message: 'Employee ID is required'
+                message: 'Employee ID or username is required'
             });
         }
         
         const pool = await getPool();
         
-        // Find employee by employee_id
-        const employee = await pool.request()
-            .input('employee_id', sql.VarChar, employee_id)
-            .query('SELECT id FROM employees WHERE employee_id = @employee_id');
+        // Try to find employee by employee_id first, then try by username
+        let employee = await pool.request()
+            .input('identifier', sql.VarChar, identifier)
+            .query('SELECT id FROM employees WHERE employee_id = @identifier');
+        
+        let empId;
+        let empIdField = identifier;
         
         if (employee.recordset.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Employee not found'
-            });
+            // Try to find by username from UserLogins
+            const userLookup = await pool.request()
+                .input('username', sql.VarChar, identifier)
+                .query('SELECT UserID FROM UserLogins WHERE Username = @username');
+            
+            if (userLookup.recordset.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User/Employee not found'
+                });
+            }
+            
+            // Get the employee.id using employee_id field that matches username
+            const employeeLookup = await pool.request()
+                .input('emp_id_field', sql.VarChar, identifier)
+                .query('SELECT id FROM employees WHERE employee_id = @emp_id_field');
+            
+            if (employeeLookup.recordset.length === 0) {
+                // If still not found, return error
+                return res.status(404).json({
+                    success: false,
+                    message: 'Employee record not found after username lookup'
+                });
+            }
+            
+            empId = employeeLookup.recordset[0].id;
+        } else {
+            empId = employee.recordset[0].id;
         }
-        
-        const empId = employee.recordset[0].id;
         
         const result = await pool.request()
             .input('emp_id', sql.Int, empId)
