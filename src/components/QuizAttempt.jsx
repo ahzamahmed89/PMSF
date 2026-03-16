@@ -4,6 +4,7 @@ import axios from 'axios';
 import '../styles/QuizAttempt.css';
 import Button from './Button';
 import Modal from './Modal';
+import PageHeader from './PageHeader';
 import { API_URL } from '../config/api';
 
 const QuizAttempt = () => {
@@ -24,6 +25,18 @@ const QuizAttempt = () => {
   const [attemptProgress, setAttemptProgress] = useState({});
   const [assignmentDetails, setAssignmentDetails] = useState({});
   const [currentAssignmentId, setCurrentAssignmentId] = useState(null);
+  const [assignedQuizRows, setAssignedQuizRows] = useState([]);
+  const [trainingFilter, setTrainingFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [preStartQuiz, setPreStartQuiz] = useState(null);
+  const [timeUpAction, setTimeUpAction] = useState('submit');
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -61,12 +74,19 @@ const QuizAttempt = () => {
       const username = localStorage.getItem('username') || 'guest';
       
       // Fetch only assigned quizzes for the current user
-      const response = await axios.get(`${API_URL}/quiz-assignments/my-quizzes/${username}`);
+      const response = await axios.get(`${API_URL}/quiz-assignments/my-quizzes/${username}`, {
+        headers: getAuthHeaders()
+      });
+
+      const assignedQuizzes = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.assigned_quizzes || []);
       
       // Map assignment details and quiz data
       const detailsMap = {};
-      const transformedQuizzes = response.data.map(item => {
+      const transformedQuizzes = assignedQuizzes.map(item => {
         detailsMap[item.quiz_id] = {
+          attempt_id: item.attempt_id,
           assignment_id: item.assignment_id,
           assignment_name: item.assignment_name,
           period_type: item.period_type,
@@ -95,6 +115,7 @@ const QuizAttempt = () => {
       });
       
       setAssignmentDetails(detailsMap);
+      setAssignedQuizRows(assignedQuizzes);
       setQuizzes(transformedQuizzes);
     } catch (error) {
       console.error('Error fetching assigned quizzes:', error);
@@ -123,11 +144,27 @@ const QuizAttempt = () => {
   }, [quizStarted, quizCompleted, currentQuestionIndex]);
 
   const handleTimeUp = () => {
+    const isPerQuestion = selectedQuiz?.timeType === 'perQuestion';
+    const isLastQuestion = selectedQuiz
+      ? currentQuestionIndex >= selectedQuiz.questions.length - 1
+      : true;
+
+    if (isPerQuestion && !isLastQuestion) {
+      setTimeUpAction('next');
+      setShowTimeUpModal(true);
+      setTimeout(() => {
+        setShowTimeUpModal(false);
+        goToNextQuestion();
+      }, 1500);
+      return;
+    }
+
+    setTimeUpAction('submit');
     setShowTimeUpModal(true);
     setTimeout(() => {
       setShowTimeUpModal(false);
       submitQuiz();
-    }, 3000);
+    }, 1800);
   };
 
   const startQuiz = async (quiz) => {
@@ -223,9 +260,20 @@ const QuizAttempt = () => {
   };
 
   const shuffleAnswersForQuestion = (question) => {
+    const wrongAnswerPool = Array.isArray(question.wrongAnswers)
+      ? [...question.wrongAnswers]
+      : [];
+    const requiredWrongAnswers = Math.min(wrongAnswerPool.length, 3);
+    const wrongAnswersToUse = [];
+
+    while (wrongAnswersToUse.length < requiredWrongAnswers && wrongAnswerPool.length > 0) {
+      const randomIndex = Math.floor(Math.random() * wrongAnswerPool.length);
+      wrongAnswersToUse.push(wrongAnswerPool.splice(randomIndex, 1)[0]);
+    }
+
     const allAnswers = [
       { text: question.correctAnswer, isCorrect: true },
-      ...question.wrongAnswers.slice(0, question.numberOfChoices - 1).map(ans => ({ 
+      ...wrongAnswersToUse.map(ans => ({ 
         text: ans, 
         isCorrect: false 
       }))
@@ -303,6 +351,9 @@ const QuizAttempt = () => {
     });
 
     const passed = score >= selectedQuiz.passingMarks;
+    const percentage = selectedQuiz.totalScore > 0
+      ? Number(((score / selectedQuiz.totalScore) * 100).toFixed(2))
+      : 0;
     const timeTaken = startTime ? Math.floor((Date.now() - startTime) / 1000) : null;
     
     const results = {
@@ -345,10 +396,15 @@ const QuizAttempt = () => {
       // Update assignment status to completed if assigned
       if (currentAssignmentId) {
         try {
+          const assignmentStatus = passed ? 'completed' : 'in_progress';
           await axios.put(`${API_URL}/quiz-assignments/${currentAssignmentId}/mark-completed`, {
             quiz_id: selectedQuiz.id,
             employee_id: username,
-            status: passed ? 'completed' : 'completed'
+            status: assignmentStatus,
+            score,
+            percentage
+          }, {
+            headers: getAuthHeaders()
           });
         } catch (assignmentError) {
           console.warn('Could not update assignment status:', assignmentError);
@@ -356,6 +412,7 @@ const QuizAttempt = () => {
       }
 
       fetchAttemptProgress(username);
+      fetchQuizzes();
     } catch (error) {
       console.error('Error saving quiz attempt:', error);
       if (error.response?.status === 403) {
@@ -370,6 +427,61 @@ const QuizAttempt = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatDateTime = (value) => {
+    if (!value) return 'N/A';
+    return new Date(value).toLocaleString();
+  };
+
+  const getStudyMaterialHref = (studyMaterialUrl) => {
+    if (!studyMaterialUrl) return '';
+    if (/^https?:\/\//i.test(studyMaterialUrl)) return studyMaterialUrl;
+    if (studyMaterialUrl.startsWith('/')) return `http://${window.location.hostname}:5000${studyMaterialUrl}`;
+    return `http://${window.location.hostname}:5000/${studyMaterialUrl}`;
+  };
+
+  const handleStartFromPreStart = async () => {
+    if (!preStartQuiz) return;
+    const quizToStart = preStartQuiz;
+    setPreStartQuiz(null);
+    await startQuiz(quizToStart);
+  };
+
+  const uniqueTrainings = Array.from(
+    new Set(assignedQuizRows.map((quiz) => quiz.quiz_title).filter(Boolean))
+  );
+
+  const isSuccessfullyAttempted = (quizRow) => {
+    const progress = attemptProgress[quizRow.quiz_id];
+    if (progress?.successful_attempts > 0) return true;
+    if (quizRow.score !== null && quizRow.passing_marks !== null) {
+      return quizRow.score >= quizRow.passing_marks;
+    }
+    return false;
+  };
+
+  const filteredRows = assignedQuizRows.filter((quiz) => {
+    const matchesTraining = trainingFilter === 'all' || quiz.quiz_title === trainingFilter;
+    const mappedStatus = isSuccessfullyAttempted(quiz)
+      ? 'completed'
+      : 'pending';
+    const matchesStatus = statusFilter === 'all' || mappedStatus === statusFilter;
+    return matchesTraining && matchesStatus;
+  });
+
+  const pendingRows = filteredRows.filter(
+    (quiz) => !isSuccessfullyAttempted(quiz)
+  );
+  const completedRows = filteredRows
+    .filter((quiz) => isSuccessfullyAttempted(quiz))
+    .sort((a, b) => {
+      const first = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const second = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return second - first;
+    });
+
+  const visibleCompletedRows = showAllCompleted ? completedRows : completedRows.slice(0, 3);
+  const visiblePendingRows = showAllPending ? pendingRows : pendingRows.slice(0, 3);
+
   const restartQuiz = () => {
     setQuizStarted(false);
     setSelectedQuiz(null);
@@ -383,6 +495,7 @@ const QuizAttempt = () => {
   if (!quizStarted) {
     return (
       <div className="quiz-attempt-container">
+        <PageHeader />
         <button className="back-btn" onClick={handleBack} title="Go back">
           ←
         </button>
@@ -401,12 +514,113 @@ const QuizAttempt = () => {
             <p>Please contact your administrator.</p>
           </div>
         ) : (
-          <div className="quiz-list">
-            {quizzes.map((quiz) => (
+          <>
+            <div className="learning-dashboard">
+              <div className="learning-dashboard-header">
+                <h2>My Learning Dashboard</h2>
+                <div className="learning-dashboard-metrics">
+                  <span>Total Assigned: <strong>{assignedQuizRows.length}</strong></span>
+                  <span>Pending: <strong>{pendingRows.length}</strong></span>
+                  <span>Completed: <strong>{completedRows.length}</strong></span>
+                </div>
+              </div>
+
+              <div className="learning-dashboard-filters">
+                <select value={trainingFilter} onChange={(e) => setTrainingFilter(e.target.value)}>
+                  <option value="all">All Trainings</option>
+                  {uniqueTrainings.map((title) => (
+                    <option key={title} value={title}>{title}</option>
+                  ))}
+                </select>
+
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+
+              <div className="learning-dashboard-columns">
+                <div className="learning-dashboard-column">
+                  <div className="learning-dashboard-column-header">
+                    <h3>Last Completed Tests</h3>
+                    {completedRows.length > 3 && (
+                      <button type="button" onClick={() => setShowAllCompleted(prev => !prev)}>
+                        {showAllCompleted ? 'Show Less' : 'See All'}
+                      </button>
+                    )}
+                  </div>
+                  {completedRows.length === 0 ? (
+                    <p>No completed test yet.</p>
+                  ) : (
+                    <ul>
+                      {visibleCompletedRows.map((quiz) => (
+                        <li key={`completed-${quiz.assignment_id}-${quiz.attempt_id}`}>
+                          <span>{quiz.quiz_title}</span>
+                          <span>{formatDateTime(quiz.completed_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="learning-dashboard-column">
+                  <div className="learning-dashboard-column-header">
+                    <h3>Pending Tests</h3>
+                    {pendingRows.length > 3 && (
+                      <button type="button" onClick={() => setShowAllPending(prev => !prev)}>
+                        {showAllPending ? 'Show Less' : 'See More'}
+                      </button>
+                    )}
+                  </div>
+                  {pendingRows.length === 0 ? (
+                    <p>No pending test.</p>
+                  ) : (
+                    <ul>
+                      {visiblePendingRows.map((quiz) => (
+                        <li key={`pending-${quiz.assignment_id}-${quiz.attempt_id}`}>
+                          <span>{quiz.quiz_title}</span>
+                          <span>{quiz.expires_at ? `Expiry: ${formatDateTime(quiz.expires_at)}` : 'Expiry: Not set'}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="quiz-list">
+            {quizzes
+              .filter((quiz) => {
+                const detail = assignmentDetails[quiz.id];
+                if (!detail) return true;
+                const matchingRow = assignedQuizRows.find((row) => row.quiz_id === quiz.id);
+                if (matchingRow && isSuccessfullyAttempted(matchingRow)) return false;
+                const byTraining = trainingFilter === 'all' || quiz.subject === trainingFilter;
+                const detailStatus = matchingRow && isSuccessfullyAttempted(matchingRow) ? 'completed' : 'pending';
+                const byStatus = statusFilter === 'all' || detailStatus === statusFilter;
+                return byTraining && byStatus;
+              })
+              .map((quiz) => (
               <div key={quiz.id} className="quiz-card">
                 <div className="quiz-card-header">
                   <h3>{quiz.subject}</h3>
                   <span className="quiz-badge">{quiz.question_count || 'Multiple'} Questions</span>
+                </div>
+                <div className="assignment-status-row">
+                  <span className={`status-badge ${(() => {
+                    const row = assignedQuizRows.find((item) => item.quiz_id === quiz.id);
+                    return row && isSuccessfullyAttempted(row) ? 'attempted' : 'pending';
+                  })()}`}>
+                    {(() => {
+                      const row = assignedQuizRows.find((item) => item.quiz_id === quiz.id);
+                      return row && isSuccessfullyAttempted(row) ? 'Attempted' : 'Pending';
+                    })()}
+                  </span>
+                  {assignmentDetails[quiz.id]?.expires_at && (
+                    <span className="deadline-info">Due: {formatDateTime(assignmentDetails[quiz.id]?.expires_at)}</span>
+                  )}
                 </div>
                 {(() => {
                   const progress = attemptProgress[quiz.id] || {
@@ -461,7 +675,7 @@ const QuizAttempt = () => {
                     <div className="quiz-detail study-material-row">
                       <span className="detail-label">Material:</span>
                       <a
-                        href={`http://${window.location.hostname}:5000${quiz.studyMaterialUrl}`}
+                        href={getStudyMaterialHref(quiz.studyMaterialUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="material-link"
@@ -472,7 +686,7 @@ const QuizAttempt = () => {
                   )}
                 </div>
                 <Button
-                  onClick={() => startQuiz(quiz)}
+                  onClick={() => setPreStartQuiz(quiz)}
                   className="start-quiz-btn"
                   disabled={attemptProgress[quiz.id]?.can_attempt === false}
                 >
@@ -480,7 +694,41 @@ const QuizAttempt = () => {
                 </Button>
               </div>
             ))}
-          </div>
+            </div>
+
+            {preStartQuiz && (
+              <Modal isOpen={!!preStartQuiz} onClose={() => setPreStartQuiz(null)}>
+                <div className="submit-modal" style={{ maxWidth: 480, margin: '0 auto', textAlign: 'left', padding: '16px 20px' }}>
+                  <h2 style={{ fontSize: 22, color: '#1a5632', marginBottom: 8 }}>Before You Start</h2>
+                  <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>{preStartQuiz.subject}</p>
+                  {preStartQuiz.studyMaterialName && preStartQuiz.studyMaterialUrl ? (
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, color: '#888' }}>Study Material:&nbsp;</span>
+                      <a
+                        href={getStudyMaterialHref(preStartQuiz.studyMaterialUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="material-link"
+                        style={{ fontSize: 13, color: '#1a5632', fontWeight: 500, textDecoration: 'underline', wordBreak: 'break-all' }}
+                      >
+                        Open {preStartQuiz.studyMaterialName}
+                      </a>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 13, color: '#888' }}>No study material attached for this quiz.</p>
+                  )}
+                  <div className="modal-actions" style={{ marginTop: 12 }}>
+                    <Button onClick={() => setPreStartQuiz(null)} className="cancel-btn">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleStartFromPreStart} className="confirm-btn">
+                      Start Quiz
+                    </Button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+          </>
         )}
       </div>
     );
@@ -490,6 +738,7 @@ const QuizAttempt = () => {
   if (quizCompleted && results) {
     return (
       <div className="quiz-attempt-container">
+        <PageHeader />
         <div className="results-container">
           <div className="results-header">
             <h1>{results.passed ? '🎉 Congratulations!' : '📊 Quiz Completed'}</h1>
@@ -553,6 +802,7 @@ const QuizAttempt = () => {
 
   return (
     <div className="quiz-attempt-container">
+      <PageHeader />
       <button className="back-btn" onClick={handleBack} title="Go back">
         ←
       </button>
@@ -660,7 +910,11 @@ const QuizAttempt = () => {
         <Modal isOpen={showTimeUpModal} onClose={() => {}}>
           <div className="time-up-modal">
             <h2>⏰ Time's Up!</h2>
-            <p>Your quiz is being submitted automatically...</p>
+            <p>
+              {timeUpAction === 'next'
+                ? 'Moving to the next question...'
+                : 'Your quiz is being submitted automatically...'}
+            </p>
           </div>
         </Modal>
       )}

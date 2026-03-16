@@ -1,10 +1,67 @@
 import { getPool } from '../config/database.js';
 import { QUIZ_MATERIALS_PUBLIC_BASE } from '../config/upload.js';
 
+const isMissingQuizColumnError = (error) => {
+  if (!error) return false;
+  if (error.number === 207) return true;
+  if (Array.isArray(error.precedingErrors)) {
+    return error.precedingErrors.some((e) => e?.number === 207);
+  }
+  return false;
+};
+
+const insertQuizQuestionWithFallback = async (transaction, {
+  quizId,
+  questionText,
+  numberOfChoices,
+  correctAnswer,
+  score,
+  questionOrder,
+  timeSeconds
+}) => {
+  try {
+    return await transaction.request()
+      .input('quizId', quizId)
+      .input('questionText', questionText)
+      .input('numberOfChoices', numberOfChoices)
+      .input('correctAnswer', correctAnswer)
+      .input('score', score)
+      .input('questionOrder', questionOrder)
+      .input('timeSeconds', timeSeconds || null)
+      .query(`
+        INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order, time_seconds)
+        OUTPUT INSERTED.question_id
+        VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder, @timeSeconds)
+      `);
+  } catch (questionInsertError) {
+    if (!isMissingQuizColumnError(questionInsertError)) throw questionInsertError;
+    return await transaction.request()
+      .input('quizId', quizId)
+      .input('questionText', questionText)
+      .input('numberOfChoices', numberOfChoices)
+      .input('correctAnswer', correctAnswer)
+      .input('score', score)
+      .input('questionOrder', questionOrder)
+      .query(`
+        INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order)
+        OUTPUT INSERTED.question_id
+        VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder)
+      `);
+  }
+};
+
 // Get all active quizzes
 export const getAllQuizzes = async (req, res) => {
   try {
     const pool = await getPool();
+    const {
+      include_all,
+      assignment_status,
+      created_from,
+      created_to,
+      department_name,
+      regulatory
+    } = req.query;
     
         // First, auto-expire quizzes that have passed their expiry date
         await pool.request().query(`
@@ -15,7 +72,49 @@ export const getAllQuizzes = async (req, res) => {
             AND is_active = 1
         `);
     
-    const result = await pool.request().query(`
+    const request = pool.request();
+    const conditions = [];
+
+    if (include_all !== '1') {
+      conditions.push('q.is_active = 1');
+    }
+
+    if (assignment_status === 'assigned') {
+      conditions.push(`EXISTS (SELECT 1 FROM quiz_assignments qa2 WHERE qa2.quiz_id = q.quiz_id)`);
+    } else if (assignment_status === 'unassigned') {
+      conditions.push(`NOT EXISTS (SELECT 1 FROM quiz_assignments qa2 WHERE qa2.quiz_id = q.quiz_id)`);
+    }
+
+    if (created_from) {
+      request.input('created_from', created_from);
+      conditions.push('CAST(q.created_at AS DATE) >= @created_from');
+    }
+
+    if (created_to) {
+      request.input('created_to', created_to);
+      conditions.push('CAST(q.created_at AS DATE) <= @created_to');
+    }
+
+    const buildQuery = (includeNewColumns) => {
+      const safeConditions = [...conditions];
+      const requestForQuery = pool.request();
+
+      if (created_from) requestForQuery.input('created_from', created_from);
+      if (created_to) requestForQuery.input('created_to', created_to);
+
+      if (includeNewColumns && department_name) {
+        requestForQuery.input('department_name', `%${department_name}%`);
+        safeConditions.push('q.department_name LIKE @department_name');
+      }
+
+      if (includeNewColumns && (regulatory === 'true' || regulatory === 'false')) {
+        requestForQuery.input('regulatory', regulatory === 'true' ? 1 : 0);
+        safeConditions.push('q.is_regulatory = @regulatory');
+      }
+
+      const whereClause = safeConditions.length ? `WHERE ${safeConditions.join(' AND ')}` : '';
+
+      const query = `
       SELECT 
         q.quiz_id,
         q.subject,
@@ -30,19 +129,36 @@ export const getAllQuizzes = async (req, res) => {
         q.max_attempts,
         q.study_material_name,
         q.study_material_url,
+        ${includeNewColumns ? 'q.department_name,' : 'CAST(NULL AS NVARCHAR(150)) AS department_name,'}
+        ${includeNewColumns ? 'q.is_regulatory,' : 'CAST(0 AS BIT) AS is_regulatory,'}
         q.created_by,
         q.created_at,
         ISNULL(q.updated_at, q.created_at) as updated_at,
+        (SELECT COUNT(*) FROM quiz_assignments qa2 WHERE qa2.quiz_id = q.quiz_id) as assignment_count,
+        (SELECT MAX(qa2.assigned_at) FROM quiz_assignments qa2 WHERE qa2.quiz_id = q.quiz_id) as last_assigned_at,
         COUNT(qq.question_id) as question_count
       FROM quizzes q
       LEFT JOIN quiz_questions qq ON q.quiz_id = qq.quiz_id AND qq.quiz_id = q.quiz_id
-      WHERE q.is_active = 1
+      ${whereClause}
       GROUP BY q.quiz_id, q.subject, q.passing_marks, q.total_score, 
                q.time_type, q.total_time, q.time_per_question, q.total_questions_to_show,
                q.expiry_date, q.is_active, q.max_attempts, q.study_material_name, q.study_material_url,
+               ${includeNewColumns ? 'q.department_name, q.is_regulatory,' : ''}
                q.created_by, q.created_at, q.updated_at
       ORDER BY q.created_at DESC
-    `);
+    `;
+
+      return { requestForQuery, query };
+    };
+    let result;
+    try {
+      const withNewCols = buildQuery(true);
+      result = await withNewCols.requestForQuery.query(withNewCols.query);
+    } catch (queryError) {
+      if (!isMissingQuizColumnError(queryError)) throw queryError;
+      const legacyQuery = buildQuery(false);
+      result = await legacyQuery.requestForQuery.query(legacyQuery.query);
+    }
     
     res.json(result.recordset);
   } catch (error) {
@@ -134,7 +250,9 @@ export const createQuiz = async (req, res) => {
       isActive,
       maxAttempts,
       studyMaterialName,
-      studyMaterialUrl
+      studyMaterialUrl,
+      departmentName,
+      isRegulatory
     } = req.body;
     
     const pool = await getPool();
@@ -147,7 +265,7 @@ export const createQuiz = async (req, res) => {
       const totalScore = questions.reduce((sum, q) => sum + parseFloat(q.score), 0);
       
       // Insert quiz
-      const quizResult = await transaction.request()
+      const insertRequest = transaction.request()
         .input('subject', subject)
         .input('passingMarks', passingMarks)
         .input('totalScore', totalScore)
@@ -161,19 +279,54 @@ export const createQuiz = async (req, res) => {
         .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
         .input('studyMaterialName', studyMaterialName || null)
         .input('studyMaterialUrl', studyMaterialUrl || null)
-        .query(`
+        .input('departmentName', departmentName || null)
+        .input('isRegulatory', isRegulatory ? 1 : 0);
+
+      let quizResult;
+      try {
+        quizResult = await insertRequest.query(`
           INSERT INTO quizzes (
             subject, passing_marks, total_score, time_type, total_time, time_per_question,
             total_questions_to_show, created_by, expiry_date, is_active, max_attempts,
-            study_material_name, study_material_url
+            study_material_name, study_material_url, department_name, is_regulatory
           )
           OUTPUT INSERTED.quiz_id
           VALUES (
             @subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion,
             @totalQuestionsToShow, @createdBy, @expiryDate, @isActive, @maxAttempts,
-            @studyMaterialName, @studyMaterialUrl
+            @studyMaterialName, @studyMaterialUrl, @departmentName, @isRegulatory
           )
         `);
+      } catch (insertError) {
+        if (!isMissingQuizColumnError(insertError)) throw insertError;
+        quizResult = await transaction.request()
+          .input('subject', subject)
+          .input('passingMarks', passingMarks)
+          .input('totalScore', totalScore)
+          .input('timeType', timeType)
+          .input('totalTime', totalTime)
+          .input('timePerQuestion', timePerQuestion)
+          .input('totalQuestionsToShow', totalQuestionsToShow)
+          .input('createdBy', createdBy)
+          .input('expiryDate', expiryDate || null)
+          .input('isActive', isActive !== undefined ? isActive : true)
+          .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
+          .input('studyMaterialName', studyMaterialName || null)
+          .input('studyMaterialUrl', studyMaterialUrl || null)
+          .query(`
+            INSERT INTO quizzes (
+              subject, passing_marks, total_score, time_type, total_time, time_per_question,
+              total_questions_to_show, created_by, expiry_date, is_active, max_attempts,
+              study_material_name, study_material_url
+            )
+            OUTPUT INSERTED.quiz_id
+            VALUES (
+              @subject, @passingMarks, @totalScore, @timeType, @totalTime, @timePerQuestion,
+              @totalQuestionsToShow, @createdBy, @expiryDate, @isActive, @maxAttempts,
+              @studyMaterialName, @studyMaterialUrl
+            )
+          `);
+      }
       
       const quizId = quizResult.recordset[0].quiz_id;
       
@@ -181,19 +334,15 @@ export const createQuiz = async (req, res) => {
       for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
         
-        const questionResult = await transaction.request()
-          .input('quizId', quizId)
-          .input('questionText', question.questionText)
-          .input('numberOfChoices', question.numberOfChoices)
-          .input('correctAnswer', question.correctAnswer)
-          .input('score', question.score)
-          .input('questionOrder', i + 1)
-          .input('timeSeconds', question.timeSeconds || null)
-          .query(`
-            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order, time_seconds)
-            OUTPUT INSERTED.question_id
-            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder, @timeSeconds)
-          `);
+        const questionResult = await insertQuizQuestionWithFallback(transaction, {
+          quizId,
+          questionText: question.questionText,
+          numberOfChoices: question.numberOfChoices,
+          correctAnswer: question.correctAnswer,
+          score: question.score,
+          questionOrder: i + 1,
+          timeSeconds: question.timeSeconds
+        });
         
         const questionId = questionResult.recordset[0].question_id;
         
@@ -526,7 +675,9 @@ export const updateQuiz = async (req, res) => {
       isActive,
       maxAttempts,
       studyMaterialName,
-      studyMaterialUrl
+      studyMaterialUrl,
+      departmentName,
+      isRegulatory
     } = req.body;
     
     const pool = await getPool();
@@ -539,7 +690,7 @@ export const updateQuiz = async (req, res) => {
       const totalScore = questions.reduce((sum, q) => sum + parseFloat(q.score), 0);
       
       // Update quiz metadata
-      await transaction.request()
+      const updateRequest = transaction.request()
         .input('quizId', quizId)
         .input('subject', subject)
         .input('passingMarks', passingMarks)
@@ -554,7 +705,11 @@ export const updateQuiz = async (req, res) => {
         .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
         .input('studyMaterialName', studyMaterialName || null)
         .input('studyMaterialUrl', studyMaterialUrl || null)
-        .query(`
+        .input('departmentName', departmentName || null)
+        .input('isRegulatory', isRegulatory ? 1 : 0);
+
+      try {
+        await updateRequest.query(`
           UPDATE quizzes 
           SET subject = @subject, 
               passing_marks = @passingMarks, 
@@ -569,9 +724,47 @@ export const updateQuiz = async (req, res) => {
               max_attempts = @maxAttempts,
               study_material_name = @studyMaterialName,
               study_material_url = @studyMaterialUrl,
+              department_name = @departmentName,
+              is_regulatory = @isRegulatory,
               updated_at = GETDATE()
           WHERE quiz_id = @quizId
         `);
+      } catch (updateError) {
+        if (!isMissingQuizColumnError(updateError)) throw updateError;
+        await transaction.request()
+          .input('quizId', quizId)
+          .input('subject', subject)
+          .input('passingMarks', passingMarks)
+          .input('totalScore', totalScore)
+          .input('timeType', timeType)
+          .input('totalTime', totalTime)
+          .input('timePerQuestion', timePerQuestion)
+          .input('totalQuestionsToShow', totalQuestionsToShow)
+          .input('lastEditedBy', lastEditedBy)
+          .input('expiryDate', expiryDate || null)
+          .input('isActive', isActive !== undefined ? isActive : true)
+          .input('maxAttempts', maxAttempts === null || maxAttempts === undefined || maxAttempts === '' ? null : parseInt(maxAttempts))
+          .input('studyMaterialName', studyMaterialName || null)
+          .input('studyMaterialUrl', studyMaterialUrl || null)
+          .query(`
+            UPDATE quizzes 
+            SET subject = @subject, 
+                passing_marks = @passingMarks, 
+                total_score = @totalScore, 
+                time_type = @timeType, 
+                total_time = @totalTime, 
+                time_per_question = @timePerQuestion,
+                total_questions_to_show = @totalQuestionsToShow,
+                last_edited_by = @lastEditedBy,
+                expiry_date = @expiryDate,
+                is_active = @isActive,
+                max_attempts = @maxAttempts,
+                study_material_name = @studyMaterialName,
+                study_material_url = @studyMaterialUrl,
+                updated_at = GETDATE()
+            WHERE quiz_id = @quizId
+          `);
+      }
       
       // Delete existing questions and their answers
       await transaction.request()
@@ -593,19 +786,15 @@ export const updateQuiz = async (req, res) => {
       for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
         
-        const questionResult = await transaction.request()
-          .input('quizId', quizId)
-          .input('questionText', question.questionText)
-          .input('numberOfChoices', question.numberOfChoices)
-          .input('correctAnswer', question.correctAnswer)
-          .input('score', question.score)
-          .input('questionOrder', i + 1)
-          .input('timeSeconds', question.timeSeconds || null)
-          .query(`
-            INSERT INTO quiz_questions (quiz_id, question_text, number_of_choices, correct_answer, score, question_order, time_seconds)
-            OUTPUT INSERTED.question_id
-            VALUES (@quizId, @questionText, @numberOfChoices, @correctAnswer, @score, @questionOrder, @timeSeconds)
-          `);
+        const questionResult = await insertQuizQuestionWithFallback(transaction, {
+          quizId,
+          questionText: question.questionText,
+          numberOfChoices: question.numberOfChoices,
+          correctAnswer: question.correctAnswer,
+          score: question.score,
+          questionOrder: i + 1,
+          timeSeconds: question.timeSeconds
+        });
         
         const questionId = questionResult.recordset[0].question_id;
         

@@ -27,6 +27,7 @@ const Home = ({ onLogout, username }) => {
   const [editingText, setEditingText] = useState('');
   const [editingIcon, setEditingIcon] = useState('');
   const [showIconPickerEdit, setShowIconPickerEdit] = useState(false);
+  const [pendingQuizCount, setPendingQuizCount] = useState(0);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -47,6 +48,53 @@ const Home = ({ onLogout, username }) => {
       }
     } catch (error) {
       console.error('Error fetching marquee items:', error);
+    }
+  };
+
+  const fetchPendingQuizCount = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const currentUsername = localStorage.getItem('username') || username;
+
+      if (!authToken || !currentUsername) {
+        setPendingQuizCount(0);
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/quiz-assignments/my-quizzes/${currentUsername}`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+
+      const assignedQuizzes = Array.isArray(response.data)
+        ? response.data
+        : (response.data?.assigned_quizzes || []);
+
+      let progressMap = {};
+      try {
+        const progressResponse = await axios.get(`${API_URL}/quiz-attempts/progress/${currentUsername}`);
+        const progressRows = Array.isArray(progressResponse.data) ? progressResponse.data : [];
+        progressMap = progressRows.reduce((acc, row) => {
+          acc[row.quiz_id] = row;
+          return acc;
+        }, {});
+      } catch (progressError) {
+        console.warn('Could not fetch quiz attempt progress for pending count:', progressError);
+      }
+
+      const isSuccessfullyAttempted = (quiz) => {
+        const progress = progressMap[quiz.quiz_id];
+        if (progress?.successful_attempts > 0) return true;
+        if (quiz.score !== null && quiz.passing_marks !== null) {
+          return Number(quiz.score) >= Number(quiz.passing_marks);
+        }
+        return false;
+      };
+
+      const pending = assignedQuizzes.filter((quiz) => !isSuccessfullyAttempted(quiz));
+      setPendingQuizCount(pending.length);
+    } catch (error) {
+      console.error('Error fetching pending quiz count:', error);
+      setPendingQuizCount(0);
     }
   };
 
@@ -199,6 +247,7 @@ const Home = ({ onLogout, username }) => {
   // Fetch marquee items on mount
   useEffect(() => {
     fetchMarqueeItems();
+    fetchPendingQuizCount();
   }, []);
 
   const handleLogout = () => {
@@ -259,6 +308,18 @@ const Home = ({ onLogout, username }) => {
           <span className="welcome-text">Welcome{username ? `, ${username}` : ''}</span>
         </div>
         <div className="header-right">
+          {hasPermission('QUIZ_ATTEMPT') && (
+            <button
+              className="quiz-alert-btn"
+              onClick={() => navigate('/quiz-attempt')}
+              title={pendingQuizCount > 0 ? `${pendingQuizCount} pending quiz` : 'No pending quizzes'}
+            >
+              <span>🎓</span>
+              {pendingQuizCount > 0 && (
+                <span className="quiz-alert-badge">{pendingQuizCount}</span>
+              )}
+            </button>
+          )}
           <Button 
             variant="outline" 
             onClick={handleLogout}
@@ -381,6 +442,16 @@ const Home = ({ onLogout, username }) => {
                     {(isAdmin || hasPermission('QUIZ_CREATE')) && (
                       <Link to="/quiz-assignments" className="nav-link" onClick={() => setShowMenu(false)}>
                         📋 Assign Quizzes
+                      </Link>
+                    )}
+                    {(isAdmin || hasPermission('QUIZ_CREATE')) && (
+                      <Link
+                        to="/quiz-assignments"
+                        state={{ initialTab: 'overview' }}
+                        className="nav-link"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        📊 Quiz Overview
                       </Link>
                     )}
                   </div>

@@ -13,6 +13,7 @@ const QuizCreator = () => {
   const [editTab, setEditTab] = useState('properties'); // 'properties' or 'assignments'
   const fileInputRef = useRef(null);
   const studyMaterialInputRef = useRef(null);
+  const assignmentDropdownRef = useRef(null);
   
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -42,12 +43,20 @@ const QuizCreator = () => {
     filter_role: [],
     filter_grade: [],
     period_type: 'monthly',
-    period_start_date: new Date().toISOString().split('T')[0]
+    period_start_date: new Date().toISOString().split('T')[0],
+    expiry_date: ''
   });
 
   // Quizzes list
   const [allQuizzes, setAllQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
+  const [browseFilters, setBrowseFilters] = useState({
+    assignmentStatus: 'all',
+    createdFrom: '',
+    createdTo: '',
+    regulatory: 'all',
+    departmentName: ''
+  });
 
   // Quiz data
   const [quizData, setQuizData] = useState({
@@ -58,8 +67,8 @@ const QuizCreator = () => {
     timePerQuestion: '',
     totalQuestionsToShow: '',
     questions: [],
-    expiryDate: '',
-    isActive: true,
+    departmentName: '',
+    isRegulatory: false,
     maxAttempts: '',
     studyMaterialName: '',
     studyMaterialUrl: ''
@@ -86,12 +95,21 @@ const QuizCreator = () => {
     if (viewMode === 'browse') {
       fetchAllQuizzes();
     }
-  }, [viewMode]);
+  }, [viewMode, browseFilters]);
 
   const fetchAllQuizzes = async () => {
     setLoadingQuizzes(true);
     try {
-      const response = await axios.get(`${API_URL}/quizzes`);
+      const response = await axios.get(`${API_URL}/quizzes`, {
+        params: {
+          include_all: 1,
+          assignment_status: browseFilters.assignmentStatus,
+          created_from: browseFilters.createdFrom || undefined,
+          created_to: browseFilters.createdTo || undefined,
+          regulatory: browseFilters.regulatory === 'all' ? undefined : browseFilters.regulatory,
+          department_name: browseFilters.departmentName || undefined
+        }
+      });
       setAllQuizzes(response.data);
     } catch (error) {
       console.error('Error fetching quizzes:', error);
@@ -114,8 +132,8 @@ const QuizCreator = () => {
         totalTime: quiz.total_time || '',
         timePerQuestion: quiz.time_per_question || '',
         totalQuestionsToShow: quiz.total_questions_to_show || '',
-        expiryDate: quiz.expiry_date ? new Date(quiz.expiry_date).toISOString().split('T')[0] : '',
-        isActive: quiz.is_active !== undefined ? quiz.is_active : true,
+        departmentName: quiz.department_name || '',
+        isRegulatory: !!quiz.is_regulatory,
         maxAttempts: quiz.max_attempts ?? '',
         studyMaterialName: quiz.study_material_name || '',
         studyMaterialUrl: quiz.study_material_url || '',
@@ -222,10 +240,29 @@ const QuizCreator = () => {
     }
   }, [assignmentForm.filter_department, assignmentForm.filter_role, assignmentForm.filter_grade, showAssignmentForm]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (assignmentDropdownRef.current && !assignmentDropdownRef.current.contains(event.target)) {
+        setAssignmentFilterDropdownOpen({
+          department: false,
+          role: false,
+          grade: false
+        });
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleCreateAssignment = async (e) => {
     e.preventDefault();
     if (eligibleCount === 0) {
       alert('No employees match the selected filters!');
+      return;
+    }
+    if (assignmentForm.period_type === 'once' && !assignmentForm.expiry_date) {
+      alert('Expiry date is required for one-time assignments');
       return;
     }
     try {
@@ -245,7 +282,8 @@ const QuizCreator = () => {
           filter_role: [],
           filter_grade: [],
           period_type: 'monthly',
-          period_start_date: new Date().toISOString().split('T')[0]
+          period_start_date: new Date().toISOString().split('T')[0],
+          expiry_date: ''
         });
         fetchQuizAssignments(editingQuizId);
       }
@@ -402,6 +440,10 @@ const QuizCreator = () => {
       alert('Please enter quiz subject');
       return;
     }
+    if (!quizData.departmentName.trim()) {
+      alert('Please enter initiating department name');
+      return;
+    }
     if (!quizData.totalQuestionsToShow || parseInt(quizData.totalQuestionsToShow) <= 0) {
       alert('Please enter the total number of questions to show in quiz');
       return;
@@ -447,8 +489,8 @@ const QuizCreator = () => {
         totalTime: quizData.timeType === 'total' ? parseInt(quizData.totalTime) : null,
         timePerQuestion: quizData.timeType === 'perQuestion' ? parseInt(quizData.timePerQuestion) : null,
         totalQuestionsToShow: parseInt(quizData.totalQuestionsToShow),
-        expiryDate: quizData.expiryDate || null,
-        isActive: quizData.isActive,
+        departmentName: quizData.departmentName,
+        isRegulatory: !!quizData.isRegulatory,
         maxAttempts: quizData.maxAttempts === '' ? null : parseInt(quizData.maxAttempts),
         studyMaterialName: quizData.studyMaterialName || null,
         studyMaterialUrl: quizData.studyMaterialUrl || null,
@@ -499,8 +541,8 @@ const QuizCreator = () => {
       timePerQuestion: '',
       totalQuestionsToShow: '',
       questions: [],
-      expiryDate: '',
-      isActive: true,
+      departmentName: '',
+      isRegulatory: false,
       maxAttempts: '',
       studyMaterialName: '',
       studyMaterialUrl: ''
@@ -522,7 +564,8 @@ const QuizCreator = () => {
       filter_role: [],
       filter_grade: [],
       period_type: 'monthly',
-      period_start_date: new Date().toISOString().split('T')[0]
+      period_start_date: new Date().toISOString().split('T')[0],
+      expiry_date: ''
     });
     setEligibleCount(0);
     setEligibleEmployees([]);
@@ -790,6 +833,62 @@ const QuizCreator = () => {
       {viewMode === 'browse' && (
         <div className="quiz-browse-section">
           <h2>Existing Quizzes</h2>
+          <div className="overview-filters" style={{ marginBottom: '16px' }}>
+            <select
+              className="quiz-select"
+              value={browseFilters.assignmentStatus}
+              onChange={(e) => setBrowseFilters((prev) => ({ ...prev, assignmentStatus: e.target.value }))}
+            >
+              <option value="all">All Assignment States</option>
+              <option value="assigned">Assigned</option>
+              <option value="unassigned">Not Assigned</option>
+            </select>
+
+            <select
+              className="quiz-select"
+              value={browseFilters.regulatory}
+              onChange={(e) => setBrowseFilters((prev) => ({ ...prev, regulatory: e.target.value }))}
+            >
+              <option value="all">All Regulatory Types</option>
+              <option value="true">Regulatory</option>
+              <option value="false">Non-Regulatory</option>
+            </select>
+
+            <input
+              type="date"
+              className="quiz-input"
+              value={browseFilters.createdFrom}
+              onChange={(e) => setBrowseFilters((prev) => ({ ...prev, createdFrom: e.target.value }))}
+            />
+
+            <input
+              type="date"
+              className="quiz-input"
+              value={browseFilters.createdTo}
+              onChange={(e) => setBrowseFilters((prev) => ({ ...prev, createdTo: e.target.value }))}
+            />
+
+            <input
+              type="text"
+              className="quiz-input"
+              placeholder="Filter by department..."
+              value={browseFilters.departmentName}
+              onChange={(e) => setBrowseFilters((prev) => ({ ...prev, departmentName: e.target.value }))}
+            />
+
+            <Button
+              onClick={() => setBrowseFilters({
+                assignmentStatus: 'all',
+                createdFrom: '',
+                createdTo: '',
+                regulatory: 'all',
+                departmentName: ''
+              })}
+              variant="outline"
+            >
+              Clear Filters
+            </Button>
+          </div>
           {loadingQuizzes ? (
             <div className="loading">Loading quizzes...</div>
           ) : allQuizzes.length === 0 ? (
@@ -813,12 +912,9 @@ const QuizCreator = () => {
                   <div className="quiz-card-details">
                     <p><strong>Passing Marks:</strong> {quiz.passing_marks}/{quiz.total_score}</p>
                     <p><strong>Time:</strong> {quiz.time_type === 'total' ? `${quiz.total_time} min` : `${quiz.time_per_question} sec per Q`}</p>
-                                        {quiz.expiry_date && (
-                                          <p>
-                                            <strong>Expires:</strong> {new Date(quiz.expiry_date).toLocaleDateString()}
-                                            {new Date(quiz.expiry_date) < new Date() && <span className="expired-label"> (Expired)</span>}
-                                          </p>
-                                        )}
+                    <p><strong>Initiating Department:</strong> {quiz.department_name || '-'}</p>
+                    <p><strong>Regulatory:</strong> {quiz.is_regulatory ? 'Yes' : 'No'}</p>
+                    <p><strong>Assigned:</strong> {(quiz.assignment_count || 0) > 0 ? 'Yes' : 'No'} ({quiz.assignment_count || 0})</p>
                     <p><strong>Created:</strong> {formatDate(quiz.created_at)}</p>
                     <p><strong>Last Updated:</strong> {formatDate(quiz.updated_at)}</p>
                     {quiz.created_by && <p><strong>Created By:</strong> {quiz.created_by}</p>}
@@ -885,32 +981,16 @@ const QuizCreator = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Expiry Date (optional)</label>
+                <label>Initiating Department *</label>
                 <input
-                  type="date"
-                  value={quizData.expiryDate}
-                  onChange={(e) => handleQuizDataChange('expiryDate', e.target.value)}
+                  type="text"
+                  value={quizData.departmentName}
+                  onChange={(e) => handleQuizDataChange('departmentName', e.target.value)}
                   className="quiz-input"
-                  min={new Date().toISOString().split('T')[0]}
+                  placeholder="e.g., Retail Banking"
                 />
-                <span className="helper-text">Quiz will automatically become inactive after this date</span>
+                <span className="helper-text">Department initiating this quiz</span>
               </div>
-
-              <div className="form-group">
-                <label className={quizData.isActive ? 'status-label-active' : 'status-label-inactive'}>Quiz Status</label>
-                <select
-                  value={quizData.isActive ? 'active' : 'inactive'}
-                  onChange={(e) => handleQuizDataChange('isActive', e.target.value === 'active')}
-                  className={`quiz-select status-select ${quizData.isActive ? 'status-select-active' : 'status-select-inactive'}`}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-                <span className={`helper-text ${quizData.isActive ? 'status-helper-active' : 'status-helper-inactive'}`}>
-                  Inactive quizzes won't be available for assignment or attempts
-                </span>
-              </div>
-            </div>
 
             <div className="form-row">
               <div className="form-group">
@@ -946,6 +1026,22 @@ const QuizCreator = () => {
                 </div>
               )}
             </div>
+
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={quizData.isRegulatory}
+                    onChange={(e) => handleQuizDataChange('isRegulatory', e.target.checked)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  Regulatory/Compliance Requirement
+                </label>
+                <span className="helper-text">Mark this quiz as regulatory/compliance-related</span>
+              </div>
+            </div>
+
+
 
             <div className="form-group">
               <label>Study Material (PDF/Word/PowerPoint)</label>
@@ -1325,7 +1421,7 @@ const QuizCreator = () => {
                       />
                     </div>
 
-                    <div className="form-row">
+                    <div className="form-row" ref={assignmentDropdownRef}>
                       <div className="form-group">
                         <label>Departments (Select multiple)</label>
                         <div className="multi-dropdown">
@@ -1413,14 +1509,15 @@ const QuizCreator = () => {
                         <label>Period Type *</label>
                         <select
                           value={assignmentForm.period_type}
-                          onChange={(e) => setAssignmentForm({...assignmentForm, period_type: e.target.value})}
+                          onChange={(e) => setAssignmentForm({...assignmentForm, period_type: e.target.value, expiry_date: e.target.value === 'once' ? assignmentForm.expiry_date : ''})}
                           className="quiz-select"
                           required
                         >
+                          <option value="once">One-Time</option>
                           <option value="monthly">Monthly</option>
                           <option value="quarterly">Quarterly</option>
+                          <option value="half-yearly">Half-Yearly</option>
                           <option value="yearly">Yearly</option>
-                          <option value="one-time">One-Time</option>
                         </select>
                       </div>
 
@@ -1434,7 +1531,27 @@ const QuizCreator = () => {
                           required
                         />
                       </div>
+
+                      {assignmentForm.period_type === 'once' && (
+                        <div className="form-group">
+                          <label>Expiry Date *</label>
+                          <input
+                            type="date"
+                            value={assignmentForm.expiry_date}
+                            onChange={(e) => setAssignmentForm({...assignmentForm, expiry_date: e.target.value})}
+                            className="quiz-input"
+                            min={assignmentForm.period_start_date}
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
+
+                    <span className="helper-text">
+                      {assignmentForm.period_type === 'once'
+                        ? 'One-time assignments require explicit expiry date.'
+                        : 'Recurring assignments auto-expire at the end of selected period.'}
+                    </span>
 
                     {showAssignmentForm && (
                       eligibleEmployees.length > 0 ? (
@@ -1506,6 +1623,7 @@ const QuizCreator = () => {
                         <div className="assignment-details">
                           <p><strong>Period:</strong> {assignment.period_type}</p>
                           <p><strong>Start Date:</strong> {new Date(assignment.period_start_date).toLocaleDateString()}</p>
+                          <p><strong>Expiry Date:</strong> {assignment.period_end_date ? new Date(assignment.period_end_date).toLocaleDateString() : 'Recurrent'}</p>
                           {assignment.filter_department && <p><strong>Department:</strong> {assignment.filter_department}</p>}
                           {assignment.filter_role && <p><strong>Role:</strong> {assignment.filter_role}</p>}
                           {assignment.filter_grade && <p><strong>Grade:</strong> {assignment.filter_grade}</p>}

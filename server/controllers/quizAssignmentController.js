@@ -145,7 +145,8 @@ export const createAssignment = async (req, res) => {
             filter_role,
             filter_grade,
             period_type,
-            period_start_date
+            period_start_date,
+            expiry_date
         } = req.body;
         
         // Validation
@@ -165,6 +166,67 @@ export const createAssignment = async (req, res) => {
             });
         }
         
+        const startDate = new Date(`${period_start_date}T00:00:00`);
+        if (Number.isNaN(startDate.getTime())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid period start date'
+            });
+        }
+
+        const getEndOfPeriodDate = (type, date) => {
+            const year = date.getFullYear();
+            const month = date.getMonth();
+
+            if (type === 'monthly') {
+                return new Date(year, month + 1, 0);
+            }
+
+            if (type === 'quarterly') {
+                const quarterEndMonth = Math.floor(month / 3) * 3 + 2;
+                return new Date(year, quarterEndMonth + 1, 0);
+            }
+
+            if (type === 'half-yearly') {
+                const halfYearEndMonth = month <= 5 ? 5 : 11;
+                return new Date(year, halfYearEndMonth + 1, 0);
+            }
+
+            if (type === 'yearly') {
+                return new Date(year, 12, 0);
+            }
+
+            return null;
+        };
+
+        let effectiveExpiryDate = null;
+
+        if (period_type === 'once') {
+            if (!expiry_date) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expiry date is required for one-time assignments'
+                });
+            }
+
+            effectiveExpiryDate = new Date(`${expiry_date}T00:00:00`);
+            if (Number.isNaN(effectiveExpiryDate.getTime())) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid expiry date'
+                });
+            }
+
+            if (effectiveExpiryDate < startDate) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expiry date cannot be earlier than start date'
+                });
+            }
+        } else {
+            effectiveExpiryDate = getEndOfPeriodDate(period_type, startDate);
+        }
+
         const pool = await getPool();
         const userId = req.user?.userId;
         
@@ -217,6 +279,21 @@ export const createAssignment = async (req, res) => {
 
             assignmentId = result.output.assignment_id;
             employeesAssigned = result.recordset[0]?.employees_assigned || 0;
+
+            if (effectiveExpiryDate) {
+                await pool.request()
+                    .input('assignment_id', sql.Int, assignmentId)
+                    .input('expiry_date', sql.Date, effectiveExpiryDate)
+                    .query(`
+                        UPDATE quiz_assignments
+                        SET period_end_date = @expiry_date
+                        WHERE id = @assignment_id;
+
+                        UPDATE employee_quiz_attempts
+                        SET expires_at = @expiry_date
+                        WHERE assignment_id = @assignment_id;
+                    `);
+            }
         } else {
             const getPeriodIdentifier = (type, startDate) => {
                 const date = new Date(startDate);
@@ -246,18 +323,19 @@ export const createAssignment = async (req, res) => {
                     .input('filter_grade', sql.VarChar, filterGradeText)
                     .input('period_type', sql.VarChar, period_type)
                     .input('period_start_date', sql.Date, period_start_date)
+                    .input('period_end_date', sql.Date, effectiveExpiryDate || null)
                     .input('assigned_by', sql.Int, userId)
                     .query(`
                         INSERT INTO quiz_assignments (
                             quiz_id, assignment_name,
                             filter_department, filter_role, filter_grade,
-                            period_type, period_start_date, assigned_by
+                            period_type, period_start_date, period_end_date, assigned_by
                         )
                         OUTPUT INSERTED.id
                         VALUES (
                             @quiz_id, @assignment_name,
                             @filter_department, @filter_role, @filter_grade,
-                            @period_type, @period_start_date, @assigned_by
+                            @period_type, @period_start_date, @period_end_date, @assigned_by
                         )
                     `);
 
@@ -267,9 +345,9 @@ export const createAssignment = async (req, res) => {
                 let attemptQuery = `
                     INSERT INTO employee_quiz_attempts (
                         assignment_id, employee_id, quiz_id,
-                        period_identifier, status
+                        period_identifier, status, expires_at
                     )
-                    SELECT @assignment_id, e.id, @quiz_id, @period_identifier, 'not_started'
+                    SELECT @assignment_id, e.id, @quiz_id, @period_identifier, 'not_started', @expires_at
                     FROM employees e
                     WHERE e.is_active = 1
                 `;
@@ -278,7 +356,8 @@ export const createAssignment = async (req, res) => {
                 const attemptRequest = transaction.request()
                     .input('assignment_id', sql.Int, assignmentId)
                     .input('quiz_id', sql.Int, quiz_id)
-                    .input('period_identifier', sql.VarChar, periodIdentifier);
+                    .input('period_identifier', sql.VarChar, periodIdentifier)
+                    .input('expires_at', sql.Date, effectiveExpiryDate || null);
 
                 if (departments.length > 0) {
                     const deptParams = departments.map((_, i) => `@dept${i}`).join(',');
@@ -617,6 +696,7 @@ export const getMyAssignedQuizzes = async (req, res) => {
             .query(`
                 SELECT 
                     eqa.id as attempt_id,
+                    qa.id as assignment_id,
                     eqa.status,
                     eqa.score,
                     eqa.percentage,
@@ -626,9 +706,20 @@ export const getMyAssignedQuizzes = async (req, res) => {
                     eqa.attempt_number,
                     q.quiz_id as quiz_id,
                     q.subject as quiz_title,
+                    q.passing_marks,
+                    q.total_score,
+                    q.time_type,
+                    q.total_time,
+                    q.time_per_question,
+                    q.total_questions_to_show,
+                    q.max_attempts,
+                    q.study_material_name,
+                    q.study_material_url,
                     CAST(NULL AS NVARCHAR(500)) as quiz_description,
                     qa.assignment_name,
                     qa.period_type,
+                    qa.period_start_date,
+                    qa.period_end_date,
                     CASE 
                         WHEN eqa.status = 'completed' THEN 'Completed'
                         WHEN eqa.expires_at < GETDATE() THEN 'Expired'
@@ -667,20 +758,41 @@ export const getMyAssignedQuizzes = async (req, res) => {
 export const markAssignmentCompleted = async (req, res) => {
     try {
         const { id } = req.params;
-        const { employee_id, quiz_id, status } = req.body;
+        const { employee_id, quiz_id, status, score, percentage } = req.body;
+        const normalizedStatus = status || 'completed';
+        const completedAt = normalizedStatus === 'completed' ? new Date() : null;
         
         const pool = await getPool();
+
+        // Resolve employee identifier to internal employees.id
+        let employeeLookup = await pool.request()
+            .input('identifier', sql.VarChar, employee_id)
+            .query('SELECT id FROM employees WHERE employee_id = @identifier');
+
+        if (employeeLookup.recordset.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Employee not found'
+            });
+        }
+
+        const employeeInternalId = employeeLookup.recordset[0].id;
         
         // Update the employee_quiz_attempts record
         const result = await pool.request()
             .input('assignment_id', sql.Int, id)
-            .input('employee_id', sql.VarChar, employee_id)
+            .input('employee_id', sql.Int, employeeInternalId)
             .input('quiz_id', sql.Int, quiz_id)
-            .input('status', sql.VarChar, status || 'completed')
-            .input('completed_at', sql.DateTime2, new Date())
+            .input('status', sql.VarChar, normalizedStatus)
+            .input('score', sql.Int, score ?? null)
+            .input('percentage', sql.Decimal(5, 2), percentage ?? null)
+            .input('completed_at', sql.DateTime2, completedAt)
             .query(`
                 UPDATE employee_quiz_attempts
-                SET status = @status, completed_at = @completed_at
+                SET status = @status,
+                    score = ISNULL(@score, score),
+                    percentage = ISNULL(@percentage, percentage),
+                    completed_at = CASE WHEN @status = 'completed' THEN @completed_at ELSE NULL END
                 WHERE assignment_id = @assignment_id 
                   AND employee_id = @employee_id
                   AND quiz_id = @quiz_id

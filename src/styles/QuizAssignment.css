@@ -1,7 +1,7 @@
 .quiz-assignment-container {
     min-height: 100vh;
     background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-    padding: 20px;
+    padding: 80px 20px 20px;
 }
 
 .quiz-assignment-header {
@@ -60,6 +60,58 @@
     gap: 10px;
     margin-bottom: 30px;
     flex-wrap: wrap;
+}
+
+.overview-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.overview-header-row h2 {
+    margin: 0;
+    color: #1a5632;
+}
+
+.export-icon-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.export-icon-btn:hover {
+    border-color: #1a5632;
+    background: #f3f8f5;
+}
+
+.overview-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.overview-row-clickable {
+    cursor: pointer;
+}
+
+.overview-row-clickable:hover {
+    background: #f8fbf9;
+}
+
+@media (max-width: 900px) {
+    .overview-filters {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 .tab-btn {
