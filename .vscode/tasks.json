@@ -2,25 +2,36 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "dev",
+			"label": "stop:node",
 			"type": "shell",
-			"command": "yarn dev",
+			"command": "powershell -NoProfile -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "start:backend",
+			"type": "shell",
+			"command": "npm run server",
 			"isBackground": true,
+			"problemMatcher": [],
 			"group": "build"
 		},
 		{
-			"label": "dev",
+			"label": "start:frontend",
 			"type": "shell",
 			"command": "npm run dev",
 			"isBackground": true,
+			"problemMatcher": [],
 			"group": "build"
 		},
 		{
-			"label": "dev",
-			"type": "shell",
-			"command": "npm install && npm run dev",
-			"isBackground": true,
-			"group": "build"
+			"label": "restart:front+back",
+			"dependsOn": [
+				"stop:node",
+				"start:backend",
+				"start:frontend"
+			],
+			"dependsOrder": "sequence",
+			"problemMatcher": []
 		}
 	]
 }

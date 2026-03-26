@@ -1,0 +1,31 @@
+Observation,Sub Observation,Description 1,Weight Score
+Customer Service,Greeting at Entry,Staff greets customer within 10 seconds,4
+Customer Service,Queue Assistance,Staff guides customer to correct counter,3
+Customer Service,Complaint Handling,Complaints acknowledged politely and logged,5
+Customer Service,Product Explanation,Staff explains product features clearly,4
+Customer Service,Closing Interaction,Staff thanks customer at exit,2
+Branch Ambience,Clean Entrance,Entrance area is clean and clutter-free,3
+Branch Ambience,Waiting Area Cleanliness,Seating and floor are clean,3
+Branch Ambience,Signage Visibility,Directional and service signs are visible,2
+Branch Ambience,Lighting Adequacy,Service area has proper lighting,2
+Branch Ambience,Washroom Condition,Washroom is clean with essentials available,3
+Compliance,KYC Document Check,Required KYC documents verified before processing,5
+Compliance,Authorization Control,Approvals obtained at required levels,4
+Compliance,Policy Display,Regulatory notices displayed as required,3
+Compliance,Record Maintenance,Transaction records stored properly,4
+Compliance,Data Privacy,Customer data not exposed on desks/screens,5
+Cash Operations,Cash Drawer Discipline,Cash drawer remains locked when unattended,4
+Cash Operations,Counterfeit Detection,UV/verification tools used for high-value notes,5
+Cash Operations,End-of-Day Balancing,Cash balance matches system at close,5
+Cash Operations,Dual Control Process,Dual custody followed for vault access,4
+Cash Operations,Excess Cash Handling,Excess cash moved to vault as per policy,3
+Digital Service,ATM/CRM Uptime,ATM/CRM functioning without major downtime,4
+Digital Service,Mobile Banking Support,Staff assists customers with app onboarding,3
+Digital Service,Token System Usage,Queue token system functioning properly,2
+Digital Service,Online Query Response,Digital service queries resolved promptly,3
+Security,CCTV Working,CCTV cameras operational and recording,5
+Security,Fire Safety Equipment,Fire extinguishers valid and accessible,4
+Security,Emergency Exit Access,Emergency exits clear and marked,4
+Security,Guard Presence,Security guard present at assigned times,3
+Security,Visitor Register,Visitor entries logged accurately,2
+Operational Efficiency,Turnaround Time,Average service turnaround within target time,5

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from './PageHeader';
+import BackButton from './BackButton';
 import '../styles/QuizAssignment.css';
 
-const QuizAssignment = () => {
+const QuizAssignment = ({ onLogout }) => {
+    const navigate = useNavigate();
     const location = useLocation();
     const preSelectedQuiz = location.state?.selectedQuiz;
     const initialTab = location.state?.initialTab;
@@ -524,7 +526,19 @@ const QuizAssignment = () => {
     
     return (
         <div className="quiz-assignment-container">
-            <PageHeader />
+            <PageHeader onLogout={onLogout} />
+            <BackButton
+                onClick={() => {
+                    if (selectedAssignment) {
+                        setSelectedAssignment(null);
+                        setAssignmentDetails(null);
+                    } else if (viewMode === 'assign') {
+                        setViewMode('assignments');
+                    } else {
+                        navigate(-1);
+                    }
+                }}
+            />
             <div className="quiz-assignment-header">
                 <h1>{pageHeading}</h1>
                 <p>{pageSubheading}</p>

@@ -7,9 +7,10 @@ import VisitOfficerApproval from './VisitOfficerApproval';
 import Button from './Button';
 import ErrorMessage from './ErrorMessage';
 import BannerFlag from './BannerFlag';
+import PageHeader from './PageHeader';
 import '../styles/EntryModule.css';
 
-export default function EntryModule() {
+export default function EntryModule({ onLogout }) {
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
 
@@ -181,14 +182,15 @@ export default function EntryModule() {
 
   return (
     <div className="entry-module-container">
+      <PageHeader onLogout={onLogout} />
       <div className="entry-module-wrapper">
         <Button 
           variant="back" 
-          onClick={() => navigate('/')}
+          onClick={() => navigate(-1)}
           icon="←"
           className="btn-back-entry"
         >
-          Back to Home
+          Back
         </Button>
 
         <div className="entry-module-header">

@@ -1,41 +1,9 @@
 .quiz-creator-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  padding: 20px;
+  padding: 70px 20px 20px;
   overflow-y: auto;
   position: relative;
-}
-
-.back-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid #1a5632;
-  color: #1a5632;
-  font-size: 20px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  z-index: 10;
-}
-
-.back-btn:hover {
-  background: #1a5632;
-  color: white;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(26, 86, 50, 0.3);
-}
-
-.back-btn:active {
-  transform: scale(0.95);
 }
 
 .quiz-creator-header {

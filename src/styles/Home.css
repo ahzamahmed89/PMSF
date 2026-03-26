@@ -751,6 +751,13 @@ html, body {
   overflow: hidden;
 }
 
+.marquee-track {
+  display: flex;
+  align-items: center;
+  min-width: 100%;
+  animation: marquee-loop 35s linear infinite;
+}
+
 .marquee-heading {
   color: white;
   font-size: 14px;
@@ -769,12 +776,14 @@ html, body {
   color: white;
   font-size: 13px;
   font-weight: 500;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
   padding-left: 20px;
-  animation: scroll-left 30s linear infinite;
+  min-width: max-content;
 }
 
-.marquee-wrapper:hover .marquee-text {
+.marquee-wrapper:hover .marquee-track {
   animation-play-state: paused;
 }
 
@@ -800,12 +809,12 @@ html, body {
   transform: scale(1.1);
 }
 
-@keyframes scroll-left {
+@keyframes marquee-loop {
   0% {
-    transform: translateX(100vw);
+    transform: translateX(0);
   }
   100% {
-    transform: translateX(-100%);
+    transform: translateX(-50%);
   }
 }
 
@@ -825,7 +834,10 @@ html, body {
   .marquee-text {
     font-size: 11px;
     padding-left: 12px;
-    animation: scroll-left 25s linear infinite;
+  }
+
+  .marquee-track {
+    animation-duration: 28s;
   }
 
   .marquee-edit-btn {
@@ -853,7 +865,10 @@ html, body {
   .marquee-text {
     font-size: 9px;
     padding-left: 8px;
-    animation: scroll-left 20s linear infinite;
+  }
+
+  .marquee-track {
+    animation-duration: 22s;
   }
 
   .marquee-edit-btn {
@@ -865,38 +880,67 @@ html, body {
 }
 
 /* Marquee Editor Modal Styling */
-.marquee-editor {
-  padding: 20px;
-  max-height: 70vh;
-  overflow-y: auto;
+.marquee-modal {
+  width: min(92vw, 980px);
+  max-width: 980px;
+  min-height: 400px;
 }
 
-.marquee-add-section {
+.marquee-modal .modal-header {
+  padding: 22px 28px;
+  flex-shrink: 0;
+}
+
+.marquee-modal .modal-title {
+  font-size: 1.45rem;
+}
+
+.marquee-modal .modal-body {
+  padding: 24px 28px;
+  min-height: 300px;
+}
+
+.marquee-editor {
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+ .marquee-add-section {
   background: #f8f9fa;
-  padding: 20px;
+  padding: 24px;
   border-radius: 8px;
   margin-bottom: 25px;
 }
 
-.marquee-add-section h3 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
+ .marquee-add-section h3 {
+  margin: 0 0 18px 0;
+  font-size: 18px;
   color: #333;
 }
 
-.marquee-input-row {
+ .marquee-input-row {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  gap: 14px;
+  align-items: center;
 }
 
 .icon-input-wrapper {
   position: relative;
 }
 
+.marquee-editor .icon-picker-wrapper {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 380px;
+  max-width: min(92vw, 380px);
+  z-index: 2000;
+}
+
 .icon-input-btn {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 8px;
   border: 2px solid #ddd;
   border-radius: 6px;
@@ -910,6 +954,13 @@ html, body {
   flex-shrink: 0;
 }
 
+ .marquee-input-row .btn {
+  height: 48px;
+  min-width: 102px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .icon-input-btn:hover {
   border-color: #1e7e34;
   background: #f8f9fa;
@@ -921,10 +972,11 @@ html, body {
 
 .marquee-text-input {
   flex: 1;
-  padding: 10px 12px;
+  min-width: 0;
+  padding: 12px 14px;
   border: 2px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 15px;
   transition: border-color 0.3s ease;
 }
 
@@ -937,9 +989,9 @@ html, body {
   margin-top: 25px;
 }
 
-.marquee-items-list h3 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
+ .marquee-items-list h3 {
+  margin: 0 0 18px 0;
+  font-size: 18px;
   color: #333;
 }
 
@@ -956,11 +1008,11 @@ html, body {
   gap: 12px;
 }
 
-.marquee-item {
+ .marquee-item {
   background: white;
   border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 12px 15px;
+  border-radius: 10px;
+  padding: 16px 18px;
   transition: all 0.3s ease;
 }
 
@@ -969,11 +1021,11 @@ html, body {
   box-shadow: 0 2px 8px rgba(30, 126, 52, 0.1);
 }
 
-.marquee-item-view {
+ .marquee-item-view {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 15px;
+  gap: 18px;
 }
 
 .marquee-item-content {
@@ -984,28 +1036,34 @@ html, body {
 }
 
 .marquee-item-icon {
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
 }
 
 .marquee-item-text {
-  font-size: 14px;
+  font-size: 15px;
   color: #333;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .marquee-item-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  align-items: center;
+}
+
+.marquee-item-actions .btn {
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .marquee-action-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 5px 8px;
+  padding: 7px 10px;
   border-radius: 4px;
   transition: all 0.2s ease;
 }
@@ -1023,14 +1081,23 @@ html, body {
   color: #1e7e34;
 }
 
-.marquee-item-edit {
+ .marquee-item-edit {
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .marquee-item-edit .marquee-text-input {
   flex: 1;
+}
+
+.marquee-item-edit .btn {
+  height: 40px;
+}
+
+.marquee-item-edit .marquee-item-actions {
+  margin-left: auto;
 }
 
 .marquee-editor-footer {
@@ -1043,9 +1110,18 @@ html, body {
 
 /* Responsive Marquee Editor */
 @media (max-width: 768px) {
+  .marquee-modal {
+    max-width: 100%;
+  }
+
+  .marquee-modal .modal-header,
+  .marquee-modal .modal-body {
+    padding: 14px 16px;
+  }
+
   .marquee-editor {
-    padding: 15px;
-    max-height: 65vh;
+    padding: 0;
+    max-height: none;
   }
 
   .marquee-add-section {
@@ -1059,6 +1135,18 @@ html, body {
 
   .marquee-input-row {
     gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .marquee-input-row .marquee-text-input {
+    flex: 1 1 220px;
+  }
+
+  .marquee-input-row .btn,
+  .marquee-input-row button[type="button"],
+  .marquee-input-row button[type="submit"] {
+    flex: 0 0 auto;
+    height: 38px;
   }
 
   .icon-input-btn {
@@ -1093,12 +1181,23 @@ html, body {
     gap: 8px;
     flex-wrap: wrap;
   }
+
+  .marquee-item-edit .marquee-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
 }
 
 @media (max-width: 480px) {
+  .marquee-modal .modal-header,
+  .marquee-modal .modal-body {
+    padding: 12px;
+  }
+
   .marquee-editor {
-    padding: 10px;
-    max-height: 60vh;
+    padding: 0;
+    max-height: none;
   }
 
   .marquee-add-section {
@@ -1164,6 +1263,10 @@ html, body {
   .marquee-item-edit {
     gap: 6px;
     flex-direction: column;
+  }
+
+  .marquee-editor .icon-picker-wrapper {
+    width: min(88vw, 300px);
   }
 
   .marquee-item-edit .icon-input-wrapper,

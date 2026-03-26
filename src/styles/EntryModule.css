@@ -23,7 +23,7 @@
 .entry-module-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f6f8 0%, #eef1f5 100%);
-  padding: 10px 20px;
+  padding: 80px 20px 20px;
   display: flex;
   align-items: flex-start;
   justify-content: center;

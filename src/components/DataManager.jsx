@@ -6,6 +6,7 @@ import FormInput from './FormInput';
 import FormSelect from './FormSelect';
 import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
+import PageHeader from './PageHeader';
 import '../styles/DataManager.css';
 
 const api = axios.create({
@@ -13,10 +14,11 @@ const api = axios.create({
   timeout: 10000
 });
 
-const DataManager = () => {
+const DataManager = ({ onLogout }) => {
+  const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [newRecord, setNewRecord] = useState({
-    MasterCat: '',
+    MasterCat: '', 
     Category: '',
     Activity: '',
     Weightage: 0,
@@ -643,24 +645,29 @@ const DataManager = () => {
 
   if (loading) return <LoadingSpinner text="Loading checklist data..." fullPage />;
   if (error) return (
-    <div className="container">
-      <ErrorMessage message={error} type="error" />
+    <div className="data-manager-container">
+      <PageHeader onLogout={onLogout} />
+      <div className="container">
+        <ErrorMessage message={error} type="error" />
+      </div>
     </div>
   );
 
   return (
-    <div className="container">
-      <div className="header-with-back">
-        <Button 
-          variant="back"
-          onClick={() => window.location.href = '/'}
-          icon="←"
-          className="btn-back"
-        >
-          Back Home
-        </Button>
-        <h1 className="checklist-title">Checklist Manager</h1>
-      </div>
+    <div className="data-manager-container">
+      <PageHeader onLogout={onLogout} />
+      <div className="container">
+        <div className="header-with-back">
+          <Button 
+            variant="back"
+            onClick={() => navigate(-1)}
+            icon="←"
+            className="btn-back"
+          >
+            Back
+          </Button>
+          <h1 className="checklist-title">Checklist Manager</h1>
+        </div>
       
       {/* Notification */}
       {notification && (
@@ -1073,6 +1080,7 @@ const DataManager = () => {
         >
           Submit All Changes
         </Button>
+      </div>
       </div>
     </div>
   );

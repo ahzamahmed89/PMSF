@@ -42,6 +42,15 @@ import {
   toggleMarqueeItem
 } from '../controllers/marqueeController.js'
 
+import {
+  getChecklistTemplates,
+  getChecklistTemplateById,
+  createChecklistTemplate,
+  updateChecklistTemplate,
+  submitChecklistEntry,
+  getChecklistEntryById
+} from '../controllers/checklistController.js'
+
 // Import auth and admin controllers
 import * as authController from '../controllers/authController.js'
 import * as adminController from '../controllers/adminController.js'
@@ -198,5 +207,16 @@ router.delete('/marquee-items/:id', auth.authenticateToken, deleteMarqueeItem)
 
 // Toggle marquee item enabled/disabled status (requires authentication)
 router.patch('/marquee-items/:id/toggle', auth.authenticateToken, toggleMarqueeItem)
+
+// ===== Custom Checklist Routes =====
+// Template management
+router.get('/checklists/templates', auth.authenticateToken, getChecklistTemplates)
+router.get('/checklists/templates/:templateId', auth.authenticateToken, getChecklistTemplateById)
+router.post('/checklists/templates', auth.authenticateToken, createChecklistTemplate)
+router.put('/checklists/templates/:templateId', auth.authenticateToken, updateChecklistTemplate)
+
+// Checklist entry/filling
+router.post('/checklists/entries', auth.authenticateToken, submitChecklistEntry)
+router.get('/checklists/entries/:entryId', auth.authenticateToken, getChecklistEntryById)
 
 export default router

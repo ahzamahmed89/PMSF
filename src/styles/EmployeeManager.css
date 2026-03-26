@@ -1,7 +1,7 @@
 .employee-manager-container {
     min-height: 100vh;
     background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-    padding: 20px;
+    padding: 70px 20px 20px;
 }
 
 .employee-manager-header {

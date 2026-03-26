@@ -7,10 +7,11 @@ import FormSelect from './FormSelect';
 import Modal from './Modal';
 import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
+import PageHeader from './PageHeader';
 import { API_URL } from '../config/api';
 import '../styles/AdminPanel.css';
 
-const AdminPanel = () => {
+const AdminPanel = ({ onLogout }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users'); // 'users', 'roles', 'permissions', 'logs', 'employees', 'quiz-assignments'
   const [loading, setLoading] = useState(false);
@@ -56,10 +57,11 @@ const AdminPanel = () => {
 
   return (
     <div className="admin-panel">
+      <PageHeader onLogout={onLogout} />
       <div className="admin-header">
         <h1>Admin Panel</h1>
-        <Button onClick={() => navigate('/home')} variant="outline">
-          Back to Home
+        <Button onClick={() => navigate(-1)} variant="outline">
+          Back
         </Button>
       </div>
 

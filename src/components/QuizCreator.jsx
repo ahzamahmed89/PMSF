@@ -3,9 +3,11 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import '../styles/QuizCreator.css';
 import Button from './Button';
+import BackButton from './BackButton';
+import PageHeader from './PageHeader';
 import { API_URL } from '../config/api';
 
-const QuizCreator = () => {
+const QuizCreator = ({ onLogout }) => {
   const navigate = useNavigate();
   // View management
   const [viewMode, setViewMode] = useState('create'); // 'create', 'browse', or 'edit'
@@ -791,9 +793,8 @@ const QuizCreator = () => {
 
   return (
     <div className="quiz-creator-container">
-      <button className="back-btn" onClick={handleBack} title="Go back">
-        ←
-      </button>
+      <PageHeader onLogout={onLogout} />
+      <BackButton onClick={handleBack} />
       <div className="quiz-creator-header">
         <h1>Quiz Manager</h1>
         <p>Create, browse, and edit product knowledge quizzes</p>

@@ -1,23 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Button from './Button';
 import Modal from './Modal';
 import IconPicker from './IconPicker';
+import PageHeader from './PageHeader';
 import { API_URL } from '../config/api';
 import '../styles/Home.css';
 
-const Home = ({ onLogout, username }) => {
+const Home = ({ onLogout }) => {
   const navigate = useNavigate();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [userRoles, setUserRoles] = useState(JSON.parse(localStorage.getItem('userRoles') || '[]'));
-  const [showMenu, setShowMenu] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [expandedSections, setExpandedSections] = useState({
-    branchMystery: false,
-    productKnowledge: false,
-    employeeManagement: false
-  });
   const [marqueeItems, setMarqueeItems] = useState([]);
   const [showMarqueeEditor, setShowMarqueeEditor] = useState(false);
   const [newMarqueeText, setNewMarqueeText] = useState('');
@@ -27,14 +21,6 @@ const Home = ({ onLogout, username }) => {
   const [editingText, setEditingText] = useState('');
   const [editingIcon, setEditingIcon] = useState('');
   const [showIconPickerEdit, setShowIconPickerEdit] = useState(false);
-  const [pendingQuizCount, setPendingQuizCount] = useState(0);
-
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
 
   // Fetch marquee items from database
   const fetchMarqueeItems = async () => {
@@ -51,52 +37,6 @@ const Home = ({ onLogout, username }) => {
     }
   };
 
-  const fetchPendingQuizCount = async () => {
-    try {
-      const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const currentUsername = localStorage.getItem('username') || username;
-
-      if (!authToken || !currentUsername) {
-        setPendingQuizCount(0);
-        return;
-      }
-
-      const response = await axios.get(`${API_URL}/quiz-assignments/my-quizzes/${currentUsername}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-
-      const assignedQuizzes = Array.isArray(response.data)
-        ? response.data
-        : (response.data?.assigned_quizzes || []);
-
-      let progressMap = {};
-      try {
-        const progressResponse = await axios.get(`${API_URL}/quiz-attempts/progress/${currentUsername}`);
-        const progressRows = Array.isArray(progressResponse.data) ? progressResponse.data : [];
-        progressMap = progressRows.reduce((acc, row) => {
-          acc[row.quiz_id] = row;
-          return acc;
-        }, {});
-      } catch (progressError) {
-        console.warn('Could not fetch quiz attempt progress for pending count:', progressError);
-      }
-
-      const isSuccessfullyAttempted = (quiz) => {
-        const progress = progressMap[quiz.quiz_id];
-        if (progress?.successful_attempts > 0) return true;
-        if (quiz.score !== null && quiz.passing_marks !== null) {
-          return Number(quiz.score) >= Number(quiz.passing_marks);
-        }
-        return false;
-      };
-
-      const pending = assignedQuizzes.filter((quiz) => !isSuccessfullyAttempted(quiz));
-      setPendingQuizCount(pending.length);
-    } catch (error) {
-      console.error('Error fetching pending quiz count:', error);
-      setPendingQuizCount(0);
-    }
-  };
 
   const handleEditMarquee = () => {
     setShowMarqueeEditor(true);
@@ -247,89 +187,20 @@ const Home = ({ onLogout, username }) => {
   // Fetch marquee items on mount
   useEffect(() => {
     fetchMarqueeItems();
-    fetchPendingQuizCount();
   }, []);
 
-  const handleLogout = () => {
-    if (onLogout) onLogout();
-    navigate('/');
-  };
-
-  const refreshSession = async () => {
-    setIsRefreshing(true);
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await axios.get(`${API_URL}/auth/verify`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data.success) {
-        // Update localStorage with fresh data
-        localStorage.setItem('userRoles', JSON.stringify(response.data.user.roles));
-        localStorage.setItem('userPermissions', JSON.stringify(response.data.user.permissions || []));
-        localStorage.setItem('username', response.data.user.username);
-        localStorage.setItem('userEmail', response.data.user.email);
-        localStorage.setItem('userFullName', response.data.user.fullName);
-        
-        // Update state to trigger re-render
-        setUserRoles(response.data.user.roles);
-        
-        alert('Session refreshed successfully!');
-      }
-    } catch (error) {
-      console.error('Refresh error:', error);
-      alert('Failed to refresh session');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   // Check if user is admin and get permissions
-  const isAdmin = userRoles.includes('Admin');
   const userPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
+  const displayMarqueeItems = marqueeItems.length > 0
+    ? marqueeItems
+    : [{ id: 'fallback', icon: '📢', text_content: 'No updates available' }];
   
   // Helper function to check permission
   const hasPermission = (permission) => userPermissions.includes(permission);
 
   return (
     <div className="home-container">
-      {/* Header */}
-      <header className="home-page-header">
-        <div className="header-left">
-          <Button 
-            variant="primary" 
-            onClick={() => setShowMenu(!showMenu)}
-            icon="☰"
-          >
-            Menu
-          </Button>
-        </div>
-        <div className="header-center">
-          <span className="welcome-text">Welcome{username ? `, ${username}` : ''}</span>
-        </div>
-        <div className="header-right">
-          {hasPermission('QUIZ_ATTEMPT') && (
-            <button
-              className="quiz-alert-btn"
-              onClick={() => navigate('/quiz-attempt')}
-              title={pendingQuizCount > 0 ? `${pendingQuizCount} pending quiz` : 'No pending quizzes'}
-            >
-              <span>🎓</span>
-              {pendingQuizCount > 0 && (
-                <span className="quiz-alert-badge">{pendingQuizCount}</span>
-              )}
-            </button>
-          )}
-          <Button 
-            variant="outline" 
-            onClick={handleLogout}
-            icon="🚪"
-            size="small"
-          >
-            Logout
-          </Button>
-        </div>
-      </header>
+      <PageHeader onLogout={onLogout} />
 
       {/* Main Content */}
       <div className="home-main">
@@ -365,14 +236,24 @@ const Home = ({ onLogout, username }) => {
       <div className="marquee-wrapper">
         <div className="marquee-content">
           <span className="marquee-heading">Latest Updates:</span>
-          <span className="marquee-text">
-            {marqueeItems.map((item, index) => (
-              <span key={item.id}>
-                {item.icon && `${item.icon} `}{item.text_content}
-                {index < marqueeItems.length - 1 && ' • '}
-              </span>
-            ))}
-          </span>
+          <div className="marquee-track">
+            <span className="marquee-text">
+              {displayMarqueeItems.map((item, index) => (
+                <span key={`primary-${item.id}`}>
+                  {item.icon && `${item.icon} `}{item.text_content}
+                  {index < displayMarqueeItems.length - 1 && ' • '}
+                </span>
+              ))}
+            </span>
+            <span className="marquee-text" aria-hidden="true">
+              {displayMarqueeItems.map((item, index) => (
+                <span key={`duplicate-${item.id}`}>
+                  {item.icon && `${item.icon} `}{item.text_content}
+                  {index < displayMarqueeItems.length - 1 && ' • '}
+                </span>
+              ))}
+            </span>
+          </div>
         </div>
         {hasPermission('MARQUEE_EDIT') && (
           <button className="marquee-edit-btn" onClick={handleEditMarquee} title="Edit Marquee">
@@ -381,122 +262,13 @@ const Home = ({ onLogout, username }) => {
         )}
       </div>
 
-      {/* Dropdown Menu */}
-      {showMenu && (
-        <div className="dropdown-menu"
-          onClick={() => setShowMenu(false)}
-        >
-          <div className="menu-content" onClick={(e) => e.stopPropagation()}>
-            <nav className="menu-nav">
-              {/* Branch Mystery Shopping Section */}
-              <div className="menu-section">
-                <div 
-                  className={`section-title ${expandedSections.branchMystery ? 'expanded' : ''}`}
-                  onClick={() => toggleSection('branchMystery')}
-                >
-                  <span>Branch Mystery Shopping</span>
-                  <span className={`dropdown-icon ${expandedSections.branchMystery ? 'expanded' : ''}`}>▼</span>
-                </div>
-                {expandedSections.branchMystery && (
-                  <div className="section-items">
-                    {hasPermission('ENTRY_MODULE') && (
-                      <Link to="/entry-module" className="nav-link" onClick={() => setShowMenu(false)}>
-                        📝 Entry Module
-                      </Link>
-                    )}
-                    {hasPermission('VIEW_DATA') && (
-                      <Link to="/view-module" className="nav-link" onClick={() => setShowMenu(false)}>
-                        👁️ View Data
-                      </Link>
-                    )}
-                    {hasPermission('DATA_MANAGER') && (
-                      <Link to="/data-manager" className="nav-link" onClick={() => setShowMenu(false)}>
-                        📋 Checklist Manager
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Product Knowledge Section */}
-              <div className="menu-section">
-                <div 
-                  className={`section-title ${expandedSections.productKnowledge ? 'expanded' : ''}`}
-                  onClick={() => toggleSection('productKnowledge')}
-                >
-                  <span>Product Knowledge</span>
-                  <span className={`dropdown-icon ${expandedSections.productKnowledge ? 'expanded' : ''}`}>▼</span>
-                </div>
-                {expandedSections.productKnowledge && (
-                  <div className="section-items">
-                    {hasPermission('QUIZ_CREATE') && (
-                      <Link to="/quiz-creator" className="nav-link" onClick={() => setShowMenu(false)}>
-                        ✏️ Create Quiz
-                      </Link>
-                    )}
-                    {hasPermission('QUIZ_ATTEMPT') && (
-                      <Link to="/quiz-attempt" className="nav-link" onClick={() => setShowMenu(false)}>
-                        📖 Attempt Quiz
-                      </Link>
-                    )}
-                    {(isAdmin || hasPermission('QUIZ_CREATE')) && (
-                      <Link to="/quiz-assignments" className="nav-link" onClick={() => setShowMenu(false)}>
-                        📋 Assign Quizzes
-                      </Link>
-                    )}
-                    {(isAdmin || hasPermission('QUIZ_CREATE')) && (
-                      <Link
-                        to="/quiz-assignments"
-                        state={{ initialTab: 'overview' }}
-                        className="nav-link"
-                        onClick={() => setShowMenu(false)}
-                      >
-                        📊 Quiz Overview
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Employee Management Section */}
-              {(isAdmin || hasPermission('QUIZ_CREATE')) && (
-                <div className="menu-section">
-                  <div
-                    className={`section-title ${expandedSections.employeeManagement ? 'expanded' : ''}`}
-                    onClick={() => toggleSection('employeeManagement')}
-                  >
-                    <span>Employee Management</span>
-                    <span className={`dropdown-icon ${expandedSections.employeeManagement ? 'expanded' : ''}`}>▼</span>
-                  </div>
-                  {expandedSections.employeeManagement && (
-                    <div className="section-items">
-                      <Link to="/employees" className="nav-link" onClick={() => setShowMenu(false)}>
-                        👥 Manage Employees
-                      </Link>
-                    </div>
-                  )}
-                  </div>
-              )}
-
-              {/* Admin Section */}
-              {(isAdmin || hasPermission('USER_MANAGEMENT')) && (
-                <div className="menu-section">
-                  <Link to="/admin" className="nav-link admin-link" onClick={() => setShowMenu(false)}>
-                    ⚙️ Admin Panel
-                  </Link>
-                </div>
-              )}
-            </nav>
-          </div>
-        </div>
-      )}
-
       {/* Marquee Editor Modal */}
       <Modal
         isOpen={showMarqueeEditor}
         onClose={handleCloseMarqueeEditor}
         title="Manage Latest Updates"
         size="large"
+        className="marquee-modal"
       >
         <div className="marquee-editor">
           {/* Add New Item Section */}

@@ -54,20 +54,226 @@
 
 .page-menu-content {
   background: #fff;
+  border-radius: 16px;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(30, 126, 52, 0.1);
+  overflow: hidden;
+}
+
+.page-menu-popover {
+  position: fixed;
+  top: 66px;
+  left: 16px;
+  z-index: 1190;
+}
+
+.page-menu-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px;
+}
+
+.page-menu-section {
+  padding: 6px 0;
+  margin-bottom: 10px;
   border-radius: 10px;
-  min-width: 240px;
-  padding: 8px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(30, 126, 52, 0.08);
+  transition: all 0.3s ease;
+}
+
+.page-menu-section:hover {
+  border-color: rgba(30, 126, 52, 0.15);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.page-menu-section:last-child {
+  margin-bottom: 0;
+}
+
+.page-section-title {
+  width: 100%;
+  border: none;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(30, 126, 52, 0.08) 0%, rgba(13, 90, 46, 0.05) 100%);
+  color: #1e7e34;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  margin-bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.page-section-title:hover {
+  background: linear-gradient(135deg, rgba(30, 126, 52, 0.15) 0%, rgba(13, 90, 46, 0.1) 100%);
+  color: #0d5a2e;
+}
+
+.page-section-title.expanded {
+  border-bottom-color: #1e7e34;
+}
+
+.page-dropdown-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  font-size: 0.9rem;
+  color: #1e7e34;
+  width: 20px;
+  height: 20px;
+}
+
+.page-dropdown-icon.expanded {
+  transform: rotate(180deg);
+  color: #0d5a2e;
+}
+
+.page-section-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px;
 }
 
 .page-menu-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
-  color: #1a3a52;
-  padding: 10px 12px;
+  color: #2c3e50;
+  padding: 10px 14px;
   border-radius: 8px;
+  transition: all 0.25s ease;
+  font-size: 0.86rem;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-menu-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: linear-gradient(180deg, #1e7e34, #0d5a2e);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.page-menu-link:hover::before {
+  transform: translateY(0);
 }
 
 .page-menu-link:hover {
-  background: #f3f8f5;
+  background: linear-gradient(135deg, rgba(30, 126, 52, 0.1) 0%, rgba(13, 90, 46, 0.05) 100%);
+  color: #1e7e34;
+  transform: translateX(5px);
+  padding-left: 17px;
+}
+
+.page-menu-section-home {
+  background: transparent;
+  border: none;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.page-menu-link-home {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #4b5563;
+  padding: 8px 12px;
+}
+
+.page-menu-link-home:hover {
+  transform: translateX(2px);
+  padding-left: 13px;
+}
+
+.page-admin-link {
+  background: linear-gradient(135deg, #1e7e34 0%, #0d5a2e 100%);
+  color: white;
+  font-weight: 600;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 14px;
+}
+
+.page-admin-link::before {
+  background: linear-gradient(180deg, #1e7e34, #0d5a2e);
+}
+
+.page-admin-link:hover {
+  background: linear-gradient(135deg, #0d5a2e 0%, #1e7e34 100%);
+  transform: translateX(5px);
+  box-shadow: 0 8px 20px rgba(30, 126, 52, 0.3);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .page-menu-popover {
+    left: 10px;
+    right: 10px;
+  }
+
+  .page-menu-popover .page-menu-content {
+    width: min(80vw, 270px);
+    max-width: 270px;
+  }
+
+  .page-menu-content {
+    width: 80vw;
+    max-width: 270px;
+  }
+
+  .page-menu-nav {
+    padding: 10px 4px;
+  }
+
+  .page-menu-section {
+    padding: 5px 0;
+    margin-bottom: 8px;
+  }
+
+  .page-section-title {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    letter-spacing: 0.35px;
+  }
+
+  .page-menu-link {
+    gap: 10px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+  }
+
+  .page-menu-link:hover {
+    padding-left: 14px;
+  }
+
+  .page-admin-link {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    margin-top: 6px;
+    padding-top: 10px;
+  }
+
+  .page-menu-link-home {
+    font-size: 0.74rem;
+    padding: 7px 10px;
+  }
 }

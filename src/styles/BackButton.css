@@ -1,0 +1,29 @@
+.app-back-btn {
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #1a5632;
+  color: #1a5632;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  z-index: 1100;
+}
+
+.app-back-btn:hover {
+  background: #1a5632;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(26, 86, 50, 0.3);
+}
+
+.app-back-btn:active {
+  transform: scale(0.95);
+}

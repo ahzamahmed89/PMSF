@@ -5,9 +5,10 @@ import ActivityCard from './ActivityCard';
 import PreviousQuarterComparison from './PreviousQuarterComparison';
 import Button from './Button';
 import LoadingSpinner from './LoadingSpinner';
+import PageHeader from './PageHeader';
 import '../styles/PMSFForm.css';
 
-export default function PMSFForm() {
+export default function PMSFForm({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const pmsfData = location.state?.pmsfData || [];
@@ -563,6 +564,7 @@ export default function PMSFForm() {
 
   return (
     <div className="pmsf-form-container">
+      <PageHeader onLogout={onLogout} />
       <div className="pmsf-form-header">
         <Button 
           variant="back"

@@ -13,6 +13,8 @@ import QuizAttempt from './QuizAttempt'
 import AdminPanel from './AdminPanel'
 import EmployeeManager from './EmployeeManager'
 import QuizAssignment from './QuizAssignment'
+import ChecklistManager from './ChecklistManager'
+import ChecklistEntry from './ChecklistEntry'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -77,56 +79,68 @@ function App() {
           <Route 
             path="/data-manager" 
             element={
-              isAuthenticated ? <DataManager /> : <Navigate to="/" />
+              isAuthenticated ? <DataManager onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/entry-module" 
             element={
-              isAuthenticated ? <EntryModule /> : <Navigate to="/" />
+              isAuthenticated ? <EntryModule onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/pmsf-form" 
             element={
-              isAuthenticated ? <PMSFForm /> : <Navigate to="/" />
+              isAuthenticated ? <PMSFForm onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/view-module" 
             element={
-              isAuthenticated ? <ViewModule /> : <Navigate to="/" />
+              isAuthenticated ? <ViewModule onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/quiz-creator" 
             element={
-              isAuthenticated ? <QuizCreator /> : <Navigate to="/" />
+              isAuthenticated ? <QuizCreator onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/quiz-attempt" 
             element={
-              isAuthenticated ? <QuizAttempt /> : <Navigate to="/" />
+              isAuthenticated ? <QuizAttempt onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/admin" 
             element={
-              isAuthenticated ? <AdminPanel /> : <Navigate to="/" />
+              isAuthenticated ? <AdminPanel onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/employees" 
             element={
-              isAuthenticated ? <EmployeeManager /> : <Navigate to="/" />
+              isAuthenticated ? <EmployeeManager onLogout={handleLogout} /> : <Navigate to="/" />
             } 
           />
           <Route 
             path="/quiz-assignments" 
             element={
-              isAuthenticated ? <QuizAssignment /> : <Navigate to="/" />
+              isAuthenticated ? <QuizAssignment onLogout={handleLogout} /> : <Navigate to="/" />
             } 
+          />
+          <Route
+            path="/checklist-manager"
+            element={
+              isAuthenticated ? <ChecklistManager onLogout={handleLogout} /> : <Navigate to="/" />
+            }
+          />
+          <Route
+            path="/checklist-entry"
+            element={
+              isAuthenticated ? <ChecklistEntry onLogout={handleLogout} /> : <Navigate to="/" />
+            }
           />
         </Routes>
       </div>

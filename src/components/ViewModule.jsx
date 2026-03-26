@@ -8,9 +8,10 @@ import Modal from './Modal';
 import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
 import BannerFlag from './BannerFlag';
+import PageHeader from './PageHeader';
 import '../styles/ViewModule.css';
 
-export default function ViewModule() {
+export default function ViewModule({ onLogout }) {
   const navigate = useNavigate();
   
   const today = new Date();
@@ -379,14 +380,15 @@ export default function ViewModule() {
 
   return (
     <div className="view-module-container">
+      <PageHeader onLogout={onLogout} />
       <div className="view-module-wrapper">
         <Button 
           variant="back" 
-          onClick={() => navigate('/')}
+          onClick={() => navigate(-1)}
           icon="←"
           className="btn-back-view btn-position-override"
         >
-          Back to Home
+          Back
         </Button>
 
         <div className="view-module-header">

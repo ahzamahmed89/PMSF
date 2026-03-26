@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BackButton from './BackButton';
+import PageHeader from './PageHeader';
 import '../styles/EmployeeManager.css';
 
-const EmployeeManager = () => {
+const EmployeeManager = ({ onLogout }) => {
     const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -520,6 +522,8 @@ const EmployeeManager = () => {
     
     return (
         <div className="employee-manager-container">
+            <PageHeader onLogout={onLogout} />
+            <BackButton onClick={() => navigate(-1)} />
             <div className="employee-manager-header">
                 <h1>Employee Management</h1>
                 <p>Manage employee records for quiz assignments</p>

@@ -57,7 +57,7 @@
 
 .modal-large {
   width: 100%;
-  max-width: 900px;
+  min-width: 900px;
 }
 
 .modal-full {

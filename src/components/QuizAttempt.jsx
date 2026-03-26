@@ -5,9 +5,10 @@ import '../styles/QuizAttempt.css';
 import Button from './Button';
 import Modal from './Modal';
 import PageHeader from './PageHeader';
+import BackButton from './BackButton';
 import { API_URL } from '../config/api';
 
-const QuizAttempt = () => {
+const QuizAttempt = ({ onLogout }) => {
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -39,10 +40,16 @@ const QuizAttempt = () => {
   };
 
   const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
+    if (quizStarted || quizCompleted) {
+      // Return to quiz selection within this page
+      setQuizStarted(false);
+      setQuizCompleted(false);
+      setSelectedQuiz(null);
+      setResults(null);
+      setCurrentQuestionIndex(0);
+      setUserAnswers({});
     } else {
-      navigate('/home');
+      navigate(-1);
     }
   };
 
@@ -495,10 +502,8 @@ const QuizAttempt = () => {
   if (!quizStarted) {
     return (
       <div className="quiz-attempt-container">
-        <PageHeader />
-        <button className="back-btn" onClick={handleBack} title="Go back">
-          ←
-        </button>
+        <PageHeader onLogout={onLogout} />
+        <BackButton onClick={handleBack} />
         <div className="quiz-selection-header">
           <h1>Product Knowledge Quiz</h1>
           <p>Select a quiz to test your knowledge</p>
@@ -738,7 +743,7 @@ const QuizAttempt = () => {
   if (quizCompleted && results) {
     return (
       <div className="quiz-attempt-container">
-        <PageHeader />
+        <PageHeader onLogout={onLogout} />
         <div className="results-container">
           <div className="results-header">
             <h1>{results.passed ? '🎉 Congratulations!' : '📊 Quiz Completed'}</h1>
@@ -802,10 +807,8 @@ const QuizAttempt = () => {
 
   return (
     <div className="quiz-attempt-container">
-      <PageHeader />
-      <button className="back-btn" onClick={handleBack} title="Go back">
-        ←
-      </button>
+      <PageHeader onLogout={onLogout} />
+      <BackButton onClick={handleBack} />
       {/* Timer Display */}
       <div className={`timer-display ${timeLeft <= 30 ? 'warning' : ''}`}>
         <span className="timer-icon">⏱</span>
